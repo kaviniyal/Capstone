@@ -31,7 +31,7 @@ RECOMMEND_PROMPT = ChatPromptTemplate.from_messages([
      "Decision rules:\n"
      "  APPROVE   — fraud_probability < 0.3 and no policy violations\n"
      "  INVESTIGATE — fraud_probability 0.3–0.6 or minor violations\n"
-     "  ESCALATE  — fraud_probability > 0.6 or critical violations\n"
+     "  ESCALATE  — fraud_probability > 0.6 or critical violations or ESCALATE A2A message received\n"
      "  REJECT    — clear policy ineligibility\n\n"
      "Priority rules:\n"
      "  P1 — CRITICAL risk or claim_amount > 50000\n"
@@ -43,6 +43,8 @@ RECOMMEND_PROMPT = ChatPromptTemplate.from_messages([
      "Original claim query: {query}\n\n"
      "Risk Assessment:\n{risk_assessment}\n\n"
      "Policy Validation:\n{policy_validation}\n\n"
+     "Correlation Analysis:\n{correlation_signals}\n\n"
+     "Agent-to-Agent Messages Received:\n{a2a_messages}\n\n"
      "Top Similar Historical Claims:\n{similar_claims}"),
 ])
 
@@ -52,9 +54,12 @@ def run_recommendation_agent(
     risk_assessment: dict,
     policy_validation: dict,
     retrieved_claims: list[dict],
+    correlation_signals: dict | None = None,
+    a2a_messages: list[dict] | None = None,
 ) -> dict:
     """
     Generate the final investigation recommendation.
+    Factors in correlation signals and any A2A escalation messages from upstream agents.
     Returns an InvestigationRecommendation dict.
     """
     llm = get_llm_temp(temperature=0.2)
@@ -64,11 +69,29 @@ def run_recommendation_agent(
         for c in retrieved_claims[:3]
     )
 
+    corr_text = "No correlation analysis available."
+    if correlation_signals:
+        corr_text = (
+            f"Overall risk: {correlation_signals.get('overall_correlation_risk', 'N/A')}\n"
+            f"Summary: {correlation_signals.get('summary', '')}\n"
+            f"Flags: {', '.join(correlation_signals.get('investigation_flags', []))}"
+        )
+
+    a2a_text = "None."
+    if a2a_messages:
+        a2a_text = "\n".join(
+            f"[{m.get('message_type','?')}] from {m.get('sender','?')}: "
+            f"{m.get('subject','')} — {m.get('payload',{})}"
+            for m in a2a_messages
+        )
+
     chain = RECOMMEND_PROMPT | llm | _parser
     rec: InvestigationRecommendation = chain.invoke({
         "query":               query,
         "risk_assessment":     str(risk_assessment),
         "policy_validation":   str(policy_validation),
+        "correlation_signals": corr_text,
+        "a2a_messages":        a2a_text,
         "similar_claims":      similar_text,
         "format_instructions": _parser.get_format_instructions(),
     })

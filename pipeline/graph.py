@@ -4,20 +4,26 @@ LangGraph orchestration pipeline for insurance fraud analysis.
 Flow:
   validate_input
       → retrieve_claims
-          → [risk_scoring, policy_validation]  (parallel)
-              → human_review_check  (HITL gate)
-                  → recommendation
-                      → END
+          → correlation          (cross-claim pattern detection)
+              → risk_scoring     (posts A2A ESCALATE message if fraud_prob > 0.6)
+                  → policy_validation
+                      → hitl_check  (HITL gate)
+                          → recommendation  (reads A2A messages + correlation signals)
+                              → END
 
 HITL: if risk_scoring flags requires_human_review=True, the graph pauses
       at the 'awaiting_human_review' node and waits for a human decision
       via the /analyze/resume endpoint before continuing.
+
+A2A:  risk_scoring and policy_validation agents post typed messages into
+      the ClaimState's a2a_messages list; the recommendation agent drains
+      and acts on those messages when generating its final decision.
 """
 
+from __future__ import annotations
 import os
 import sys
-from typing import TypedDict, Annotated, Any
-import operator
+from typing import TypedDict
 
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
@@ -25,12 +31,20 @@ from langgraph.checkpoint.memory import MemorySaver
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from guardrails.guards import validate_and_sanitize
 from agents.fraud_retrieval_agent import run_fraud_retrieval_agent
+from agents.correlation_agent import run_correlation_agent
 from agents.risk_scoring_agent import run_risk_scoring_agent
 from agents.policy_validation_agent import run_policy_validation_agent
 from agents.recommendation_agent import run_recommendation_agent
+from agents.a2a_protocol import (
+    escalation_message,
+    flag_message,
+    approval_message,
+    messages_to_state_list,
+)
+from config import settings
 
 
-# ── State ───────────────────────────────────────────────────────────────────
+# ── State ─────────────────────────────────────────────────────────────────────
 
 class ClaimState(TypedDict):
     # inputs
@@ -47,8 +61,12 @@ class ClaimState(TypedDict):
     crag_triggered: bool
 
     # agent outputs
+    correlation_signals: dict
     risk_assessment: dict
     policy_validation: dict
+
+    # a2a messages (serialisable dicts from A2AMessage dataclass)
+    a2a_messages: list[dict]
 
     # hitl
     awaiting_human: bool
@@ -59,7 +77,7 @@ class ClaimState(TypedDict):
     error: str
 
 
-# ── Node implementations ─────────────────────────────────────────────────────
+# ── Node implementations ──────────────────────────────────────────────────────
 
 def node_validate_input(state: ClaimState) -> dict:
     result = validate_and_sanitize(state["original_query"])
@@ -85,12 +103,54 @@ def node_retrieve_claims(state: ClaimState) -> dict:
     }
 
 
+def node_correlation(state: ClaimState) -> dict:
+    """Cross-claim correlation analysis — runs before individual risk scoring."""
+    signals = run_correlation_agent(
+        query=state["sanitized_query"],
+        retrieved_claims=state["retrieved_claims"],
+    )
+    return {"correlation_signals": signals}
+
+
 def node_risk_scoring(state: ClaimState) -> dict:
     risk = run_risk_scoring_agent(
         query=state["sanitized_query"],
         retrieved_claims=state["retrieved_claims"],
     )
-    return {"risk_assessment": risk}
+
+    # A2A: post an ESCALATE message to the recommendation agent when risk is high
+    existing = list(state.get("a2a_messages") or [])
+    fraud_prob = risk.get("fraud_probability", 0.0)
+
+    if fraud_prob > settings.hitl_high_threshold:
+        msg = escalation_message(
+            sender="risk_scoring_agent",
+            receiver="recommendation_agent",
+            fraud_probability=fraud_prob,
+            reason="; ".join(risk.get("key_risk_factors", [])),
+        )
+        existing.extend(messages_to_state_list([msg]))
+    elif fraud_prob < settings.hitl_low_threshold:
+        msg = approval_message(
+            sender="risk_scoring_agent",
+            receiver="recommendation_agent",
+            confidence=risk.get("confidence", 0.0),
+        )
+        existing.extend(messages_to_state_list([msg]))
+
+    # Also factor in correlation risk — if CRITICAL, add a FLAG
+    corr_risk = (state.get("correlation_signals") or {}).get("overall_correlation_risk", "LOW")
+    if corr_risk in ("HIGH", "CRITICAL"):
+        flags = (state.get("correlation_signals") or {}).get("investigation_flags", [])
+        flag_msg = flag_message(
+            sender="risk_scoring_agent",
+            receiver="recommendation_agent",
+            flag=f"CORRELATION_{corr_risk}",
+            detail="; ".join(flags[:3]),
+        )
+        existing.extend(messages_to_state_list([flag_msg]))
+
+    return {"risk_assessment": risk, "a2a_messages": existing}
 
 
 def node_policy_validation(state: ClaimState) -> dict:
@@ -98,7 +158,20 @@ def node_policy_validation(state: ClaimState) -> dict:
         query=state["sanitized_query"],
         retrieved_claims=state["retrieved_claims"],
     )
-    return {"policy_validation": validation}
+
+    # A2A: flag critical policy violations to the recommendation agent
+    existing = list(state.get("a2a_messages") or [])
+    violations = validation.get("violations", [])
+    if violations and not validation.get("is_policy_valid", True):
+        msg = flag_message(
+            sender="policy_validation_agent",
+            receiver="recommendation_agent",
+            flag="POLICY_VIOLATION",
+            detail="; ".join(violations[:3]),
+        )
+        existing.extend(messages_to_state_list([msg]))
+
+    return {"policy_validation": validation, "a2a_messages": existing}
 
 
 def node_hitl_check(state: ClaimState) -> dict:
@@ -116,15 +189,17 @@ def node_recommendation(state: ClaimState) -> dict:
         risk_assessment=state["risk_assessment"],
         policy_validation=state["policy_validation"],
         retrieved_claims=state["retrieved_claims"],
+        correlation_signals=state.get("correlation_signals"),
+        a2a_messages=state.get("a2a_messages"),
     )
     return {"recommendation": rec}
 
 
-# ── Routing ──────────────────────────────────────────────────────────────────
+# ── Routing ───────────────────────────────────────────────────────────────────
 
 def route_after_hitl(state: ClaimState) -> str:
     if state.get("awaiting_human") and not state.get("human_decision"):
-        return "awaiting_human_review"   # pause — interrupt here
+        return "awaiting_human_review"
     return "recommendation"
 
 
@@ -134,18 +209,19 @@ def route_after_guardrail(state: ClaimState) -> str:
     return "retrieve_claims"
 
 
-# ── Graph construction ───────────────────────────────────────────────────────
+# ── Graph construction ────────────────────────────────────────────────────────
 
 def build_graph():
     builder = StateGraph(ClaimState)
 
-    builder.add_node("validate_input",      node_validate_input)
-    builder.add_node("retrieve_claims",     node_retrieve_claims)
-    builder.add_node("risk_scoring",        node_risk_scoring)
-    builder.add_node("policy_validation",   node_policy_validation)
-    builder.add_node("hitl_check",          node_hitl_check)
-    builder.add_node("awaiting_human_review", lambda s: s)  # pause node
-    builder.add_node("recommendation",      node_recommendation)
+    builder.add_node("validate_input",        node_validate_input)
+    builder.add_node("retrieve_claims",       node_retrieve_claims)
+    builder.add_node("correlation",           node_correlation)
+    builder.add_node("risk_scoring",          node_risk_scoring)
+    builder.add_node("policy_validation",     node_policy_validation)
+    builder.add_node("hitl_check",            node_hitl_check)
+    builder.add_node("awaiting_human_review", lambda s: s)   # pause node
+    builder.add_node("recommendation",        node_recommendation)
 
     builder.set_entry_point("validate_input")
 
@@ -154,10 +230,8 @@ def build_graph():
         END: END,
     })
 
-    # After retrieval, run risk scoring and policy validation in sequence
-    # (LangGraph doesn't have native parallel fan-out without Send API;
-    #  we run them back-to-back which is effectively sequential but clean)
-    builder.add_edge("retrieve_claims",   "risk_scoring")
+    builder.add_edge("retrieve_claims",   "correlation")
+    builder.add_edge("correlation",       "risk_scoring")
     builder.add_edge("risk_scoring",      "policy_validation")
     builder.add_edge("policy_validation", "hitl_check")
 
@@ -166,7 +240,6 @@ def build_graph():
         "recommendation":        "recommendation",
     })
 
-    # After human resumes (human_decision set), go straight to recommendation
     builder.add_edge("awaiting_human_review", "recommendation")
     builder.add_edge("recommendation", END)
 
@@ -196,19 +269,21 @@ def run_analysis(query: str, filters: dict | None = None, thread_id: str = "defa
     """
     graph = get_graph()
     initial_state: ClaimState = {
-        "original_query":   query,
-        "filters":          filters or {},
-        "sanitized_query":  "",
-        "guardrail_flags":  [],
-        "retrieved_claims": [],
-        "query_used":       "",
-        "crag_triggered":   False,
-        "risk_assessment":  {},
-        "policy_validation":{},
-        "awaiting_human":   False,
-        "human_decision":   "",
-        "recommendation":   {},
-        "error":            "",
+        "original_query":    query,
+        "filters":           filters or {},
+        "sanitized_query":   "",
+        "guardrail_flags":   [],
+        "retrieved_claims":  [],
+        "query_used":        "",
+        "crag_triggered":    False,
+        "correlation_signals": {},
+        "risk_assessment":   {},
+        "policy_validation": {},
+        "a2a_messages":      [],
+        "awaiting_human":    False,
+        "human_decision":    "",
+        "recommendation":    {},
+        "error":             "",
     }
     config = {"configurable": {"thread_id": thread_id}}
     final_state = graph.invoke(initial_state, config=config)

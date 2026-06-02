@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Insurance Claims Intelligence Assistant</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0f1117;
+      --surface:  #1a1d2e;
+      --card:     #20243a;
+      --border:   #2e334d;
+      --accent:   #4f8ef7;
+      --accent2:  #7c5cbf;
+      --green:    #34c77b;
+      --yellow:   #f5a623;
+      --red:      #e84040;
+      --text:     #e2e8f0;
+      --muted:    #8892a4;
+      --radius:   10px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    /* ── Header ─────────────────────────────────────────────── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      height: 60px;
+    }
+    header .logo { font-size: 1.2rem; font-weight: 700; color: var(--accent); }
+    header .sub  { color: var(--muted); font-size: 12px; }
+
+    /* ── Nav tabs ───────────────────────────────────────────── */
+    nav {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      padding: 0 2rem;
+      gap: 0.25rem;
+    }
+    nav button {
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 0.75rem 1rem;
+      transition: color .15s, border-color .15s;
+    }
+    nav button.active { color: var(--accent); border-bottom-color: var(--accent); }
+    nav button:hover:not(.active) { color: var(--text); }
+
+    /* ── Main layout ─────────────────────────────────────────── */
+    main { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* ── Cards ───────────────────────────────────────────────── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1rem;
+    }
+    .card h3 { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase;
+                letter-spacing: .06em; margin-bottom: .75rem; }
+
+    /* ── Form elements ────────────────────────────────────────── */
+    textarea, input[type="text"], input[type="number"], select {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 14px;
+      padding: .6rem .85rem;
+      outline: none;
+      transition: border-color .15s;
+    }
+    textarea { resize: vertical; min-height: 90px; }
+    textarea:focus, input:focus, select:focus { border-color: var(--accent); }
+
+    label { display: block; font-size: 12px; color: var(--muted); margin-bottom: .35rem; font-weight: 500; }
+
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .form-group { margin-bottom: .9rem; }
+
+    button.btn-primary {
+      background: var(--accent);
+      border: none;
+      border-radius: 6px;
+      color: #fff;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      padding: .6rem 1.5rem;
+      transition: opacity .15s;
+    }
+    button.btn-primary:hover { opacity: .85; }
+    button.btn-primary:disabled { opacity: .45; cursor: not-allowed; }
+
+    button.btn-secondary {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      padding: .6rem 1.2rem;
+      transition: background .15s;
+      margin-left: .5rem;
+    }
+    button.btn-secondary:hover { background: var(--border); }
+
+    /* ── Results ─────────────────────────────────────────────── */
+    .results-container { margin-top: 1.5rem; }
+
+    .claim-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--accent);
+      border-radius: 6px;
+      padding: 1rem 1.25rem;
+      margin-bottom: .75rem;
+    }
+    .claim-item.fraud { border-left-color: var(--red); }
+    .claim-item.legit { border-left-color: var(--green); }
+
+    .claim-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: .5rem; }
+    .claim-score  { font-size: 12px; color: var(--muted); }
+    .claim-doc    { font-size: 13px; color: var(--text); white-space: pre-wrap; word-break: break-word; }
+
+    /* ── Badges ──────────────────────────────────────────────── */
+    .badge {
+      display: inline-block;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .04em;
+      padding: 2px 8px;
+      text-transform: uppercase;
+    }
+    .badge-green   { background: #1a3a2a; color: var(--green); }
+    .badge-red     { background: #3a1a1a; color: var(--red); }
+    .badge-yellow  { background: #3a2e1a; color: var(--yellow); }
+    .badge-blue    { background: #1a2a3a; color: var(--accent); }
+    .badge-purple  { background: #2a1a3a; color: #b78ef7; }
+
+    /* ── Risk meter ──────────────────────────────────────────── */
+    .risk-meter-wrap { margin: .5rem 0; }
+    .risk-meter-bar {
+      background: var(--border);
+      border-radius: 99px;
+      height: 8px;
+      overflow: hidden;
+    }
+    .risk-meter-fill { height: 100%; border-radius: 99px; transition: width .4s ease; }
+
+    /* ── Section grid for analysis results ───────────────────── */
+    .analysis-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 700px) { .analysis-grid { grid-template-columns: 1fr; } .row { grid-template-columns: 1fr; } }
+
+    .info-row { display: flex; justify-content: space-between; padding: .3rem 0;
+                border-bottom: 1px solid var(--border); font-size: 13px; }
+    .info-row:last-child { border-bottom: none; }
+    .info-key { color: var(--muted); }
+    .info-val { font-weight: 500; text-align: right; max-width: 60%; }
+
+    ul.step-list { list-style: none; padding: 0; }
+    ul.step-list li { padding: .3rem 0 .3rem 1.2rem; position: relative; font-size: 13px; border-bottom: 1px solid var(--border); }
+    ul.step-list li:last-child { border-bottom: none; }
+    ul.step-list li::before { content: '→'; position: absolute; left: 0; color: var(--accent); }
+
+    /* ── HITL banner ─────────────────────────────────────────── */
+    #hitl-banner {
+      background: #2e2010;
+      border: 1px solid var(--yellow);
+      border-radius: var(--radius);
+      padding: 1rem 1.5rem;
+      margin-top: 1rem;
+      display: none;
+    }
+    #hitl-banner h4 { color: var(--yellow); margin-bottom: .5rem; }
+
+    /* ── Signals ─────────────────────────────────────────────── */
+    .signal-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: .75rem 1rem;
+      margin-bottom: .5rem;
+    }
+    .signal-header { display: flex; align-items: center; gap: .5rem; margin-bottom: .3rem; }
+
+    /* ── Spinner ─────────────────────────────────────────────── */
+    .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--border);
+               border-top-color: var(--accent); border-radius: 50%; animation: spin .6s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-row { display: flex; align-items: center; gap: .5rem; color: var(--muted); font-size: 13px; padding: .5rem 0; }
+
+    /* ── Error ───────────────────────────────────────────────── */
+    .error-box { background: #3a1a1a; border: 1px solid var(--red); border-radius: 6px;
+                 color: var(--red); padding: .75rem 1rem; margin-top: .75rem; font-size: 13px; }
+
+    /* ── Config ──────────────────────────────────────────────── */
+    #api-base-input { font-family: monospace; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">Insurance Claims Intelligence</div>
+    <div class="sub">AI-Powered Fraud Detection &amp; Investigation Assistant</div>
+  </div>
+</header>
+
+<nav>
+  <button class="active" onclick="switchTab('query-tab', this)">Claim Search</button>
+  <button onclick="switchTab('analyze-tab', this)">Full Analysis</button>
+  <button onclick="switchTab('correlate-tab', this)">Correlation</button>
+  <button onclick="switchTab('settings-tab', this)">Settings</button>
+</nav>
+
+<main>
+
+  <!-- ═══ QUERY TAB ═══════════════════════════════════════════════════ -->
+  <div id="query-tab" class="panel active">
+    <div class="card">
+      <h3>Semantic Claim Search</h3>
+      <div class="form-group">
+        <label>Investigation Query</label>
+        <textarea id="q-query" placeholder="e.g. Vehicle fire claim filed 3 days after policy start, no police report, $72k damages"></textarea>
+      </div>
+      <div class="row">
+        <div class="form-group">
+          <label>Top-K Results</label>
+          <input type="number" id="q-topk" value="5" min="1" max="20" />
+        </div>
+        <div class="form-group">
+          <label>Fraud Filter</label>
+          <select id="q-fraud-filter">
+            <option value="">All claims</option>
+            <option value="Y">Fraudulent only</option>
+            <option value="N">Legitimate only</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn-primary" id="q-btn" onclick="runQuery()">Search Claims</button>
+    </div>
+
+    <div class="results-container" id="q-results"></div>
+  </div>
+
+  <!-- ═══ ANALYZE TAB ══════════════════════════════════════════════════ -->
+  <div id="analyze-tab" class="panel">
+    <div class="card">
+      <h3>Full Fraud Investigation Pipeline</h3>
+      <div class="form-group">
+        <label>Claim Description</label>
+        <textarea id="a-query" placeholder="Describe the claim in detail — policy type, incident, amount, customer history, red flags..."></textarea>
+      </div>
+      <button class="btn-primary" id="a-btn" onclick="runAnalysis()">Run Investigation</button>
+      <button class="btn-secondary" onclick="clearAnalysis()">Clear</button>
+    </div>
+
+    <!-- HITL banner -->
+    <div id="hitl-banner">
+      <h4>⚠ Human Review Required</h4>
+      <p style="font-size:13px;color:var(--text);margin-bottom:.75rem">
+        The fraud probability falls in the uncertainty band. Please review the partial analysis above and provide your decision:
+      </p>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+        <button class="btn-primary" onclick="resumeAnalysis('approve')" style="background:var(--green)">Approve</button>
+        <button class="btn-primary" onclick="resumeAnalysis('escalate')" style="background:var(--red)">Escalate</button>
+        <button class="btn-primary" onclick="resumeAnalysis('reject')" style="background:var(--yellow);color:#000">Reject</button>
+      </div>
+    </div>
+
+    <div id="a-results"></div>
+  </div>
+
+  <!-- ═══ CORRELATE TAB ════════════════════════════════════════════════ -->
+  <div id="correlate-tab" class="panel">
+    <div class="card">
+      <h3>Cross-Claim Correlation Analysis</h3>
+      <div class="form-group">
+        <label>Investigation Query</label>
+        <textarea id="c-query" placeholder="e.g. Multiple vehicle theft claims in the northeast region with similar amounts"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Claims to Analyse (Top-K)</label>
+        <input type="number" id="c-topk" value="10" min="3" max="50" />
+      </div>
+      <button class="btn-primary" id="c-btn" onclick="runCorrelation()">Detect Patterns</button>
+    </div>
+
+    <div id="c-results"></div>
+  </div>
+
+  <!-- ═══ SETTINGS TAB ════════════════════════════════════════════════ -->
+  <div id="settings-tab" class="panel">
+    <div class="card">
+      <h3>API Configuration</h3>
+      <div class="form-group">
+        <label>Backend Base URL</label>
+        <input type="text" id="api-base-input" value="http://localhost:8000" />
+      </div>
+      <button class="btn-primary" onclick="saveSettings()">Save</button>
+      <p style="color:var(--green);font-size:12px;margin-top:.5rem" id="settings-msg"></p>
+    </div>
+    <div class="card">
+      <h3>Quick Actions</h3>
+      <button class="btn-secondary" onclick="ingestData()" style="margin:0 .5rem .5rem 0">Ingest Data</button>
+      <button class="btn-secondary" onclick="openDocs()">API Docs (Swagger)</button>
+      <p id="ingest-msg" style="color:var(--green);font-size:12px;margin-top:.5rem"></p>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ── Config ────────────────────────────────────────────────────────────
+let API_BASE = localStorage.getItem('api_base') || 'http://localhost:8000';
+let _threadId = null;
+
+function getBase() { return (document.getElementById('api-base-input')?.value || API_BASE).replace(/\/$/, ''); }
+
+function saveSettings() {
+  API_BASE = getBase();
+  localStorage.setItem('api_base', API_BASE);
+  document.getElementById('settings-msg').textContent = 'Saved ✓';
+  setTimeout(() => document.getElementById('settings-msg').textContent = '', 2000);
+}
+function openDocs() { window.open(getBase() + '/docs', '_blank'); }
+
+// ── Tabs ─────────────────────────────────────────────────────────────
+function switchTab(id, btn) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────
+function loading(id, msg = 'Processing…') {
+  document.getElementById(id).innerHTML =
+    `<div class="loading-row"><span class="spinner"></span><span>${msg}</span></div>`;
+}
+function error(id, msg) {
+  document.getElementById(id).innerHTML = `<div class="error-box">Error: ${msg}</div>`;
+}
+function riskColor(prob) {
+  if (prob < 0.3) return 'var(--green)';
+  if (prob < 0.6) return 'var(--yellow)';
+  return 'var(--red)';
+}
+function riskBadge(level) {
+  const map = { LOW: 'badge-green', MEDIUM: 'badge-yellow', HIGH: 'badge-red', CRITICAL: 'badge-red' };
+  return `<span class="badge ${map[level] || 'badge-blue'}">${level}</span>`;
+}
+function severityBadge(s) {
+  const map = { LOW: 'badge-green', MEDIUM: 'badge-yellow', HIGH: 'badge-red' };
+  return `<span class="badge ${map[s] || 'badge-blue'}">${s}</span>`;
+}
+function decisionBadge(d) {
+  const map = { APPROVE: 'badge-green', INVESTIGATE: 'badge-yellow', ESCALATE: 'badge-red', REJECT: 'badge-purple' };
+  return `<span class="badge ${map[d] || 'badge-blue'}">${d}</span>`;
+}
+
+// ── Claim Search ──────────────────────────────────────────────────────
+async function runQuery() {
+  const q = document.getElementById('q-query').value.trim();
+  if (!q) return;
+  const topk = parseInt(document.getElementById('q-topk').value) || 5;
+  const ff = document.getElementById('q-fraud-filter').value;
+  const filters = ff ? { fraud_label: ff } : null;
+
+  loading('q-results', 'Searching claims…');
+  document.getElementById('q-btn').disabled = true;
+
+  try {
+    const res = await fetch(`${getBase()}/query`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: q, top_k: topk, filters, rerank: true }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || res.statusText);
+    renderQueryResults(data);
+  } catch (e) {
+    error('q-results', e.message);
+  } finally {
+    document.getElementById('q-btn').disabled = false;
+  }
+}
+
+function renderQueryResults(data) {
+  const el = document.getElementById('q-results');
+  if (!data.results?.length) { el.innerHTML = '<div class="card">No results found.</div>'; return; }
+
+  const header = `
+    <div class="card" style="margin-bottom:.5rem;display:flex;gap:1rem;align-items:center;flex-wrap:wrap">
+      <span style="color:var(--muted);font-size:13px">Query used: <strong style="color:var(--text)">${escHtml(data.query_used)}</strong></span>
+      ${data.crag_triggered ? '<span class="badge badge-purple">CRAG Triggered</span>' : ''}
+      <span style="color:var(--muted);font-size:12px">${data.results.length} results</span>
+    </div>`;
+
+  const items = data.results.map((r, i) => {
+    const fl = r.metadata?.fraud_label || '?';
+    const cls = fl === 'Y' ? 'fraud' : (fl === 'N' ? 'legit' : '');
+    return `
+      <div class="claim-item ${cls}">
+        <div class="claim-header">
+          <span style="font-size:12px;font-weight:600;color:var(--muted)">#${i+1} · ${r.doc_id || ''}</span>
+          <span class="claim-score">
+            ${fl === 'Y' ? '<span class="badge badge-red">FRAUD</span>' : fl === 'N' ? '<span class="badge badge-green">LEGIT</span>' : ''}
+            &nbsp;score: ${(r.score ?? 0).toFixed(3)}
+          </span>
+        </div>
+        <div class="claim-doc">${escHtml(r.document?.slice(0, 400))}${r.document?.length > 400 ? '…' : ''}</div>
+      </div>`;
+  }).join('');
+
+  el.innerHTML = header + items;
+}
+
+// ── Full Analysis ──────────────────────────────────────────────────────
+async function runAnalysis() {
+  const q = document.getElementById('a-query').value.trim();
+  if (!q) return;
+
+  _threadId = 'thread_' + Math.random().toString(36).slice(2);
+  loading('a-results', 'Running full investigation pipeline…');
+  document.getElementById('a-btn').disabled = true;
+  document.getElementById('hitl-banner').style.display = 'none';
+
+  try {
+    const res = await fetch(`${getBase()}/analyze`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: q, thread_id: _threadId }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || res.statusText);
+    renderAnalysis(data);
+  } catch (e) {
+    error('a-results', e.message);
+  } finally {
+    document.getElementById('a-btn').disabled = false;
+  }
+}
+
+async function resumeAnalysis(decision) {
+  if (!_threadId) return;
+  loading('a-results', `Applying decision: ${decision}…`);
+  document.getElementById('hitl-banner').style.display = 'none';
+
+  try {
+    const res = await fetch(`${getBase()}/analyze/resume`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ thread_id: _threadId, human_decision: decision }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || res.statusText);
+    renderAnalysis(data);
+  } catch (e) {
+    error('a-results', e.message);
+  }
+}
+
+function clearAnalysis() {
+  document.getElementById('a-results').innerHTML = '';
+  document.getElementById('hitl-banner').style.display = 'none';
+  document.getElementById('a-query').value = '';
+  _threadId = null;
+}
+
+function renderAnalysis(data) {
+  const el = document.getElementById('a-results');
+
+  if (data.awaiting_human) {
+    document.getElementById('hitl-banner').style.display = 'block';
+  }
+
+  const risk = data.risk_assessment || {};
+  const policy = data.policy_validation || {};
+  const rec = data.recommendation || {};
+  const corr = data.correlation_signals || {};
+
+  const prob = risk.fraud_probability ?? 0;
+  const pct = (prob * 100).toFixed(1);
+  const barColor = riskColor(prob);
+
+  const flags = (data.guardrail_flags || []).filter(f => f !== 'OK');
+
+  el.innerHTML = `
+    ${flags.length ? `<div class="error-box" style="margin-bottom:1rem">Guardrail flags: ${flags.join(', ')}</div>` : ''}
+
+    <!-- Row 1: Risk + Policy -->
+    <div class="analysis-grid">
+
+      <!-- Risk Assessment -->
+      <div class="card">
+        <h3>Risk Assessment</h3>
+        ${risk.risk_level ? `
+        <div style="margin-bottom:1rem">
+          <div style="display:flex;justify-content:space-between;margin-bottom:.4rem">
+            <span style="font-weight:600;font-size:1.4rem">${pct}%</span>
+            ${riskBadge(risk.risk_level)}
+          </div>
+          <div class="risk-meter-bar">
+            <div class="risk-meter-fill" style="width:${pct}%;background:${barColor}"></div>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:.3rem">Fraud probability · confidence ${((risk.confidence??0)*100).toFixed(0)}%</div>
+        </div>
+        <div class="info-row"><span class="info-key">Risk Level</span><span class="info-val">${riskBadge(risk.risk_level)}</span></div>
+        <div class="info-row"><span class="info-key">Human Review</span><span class="info-val">${risk.requires_human_review ? '<span class="badge badge-yellow">Required</span>' : '<span class="badge badge-green">Not Required</span>'}</span></div>
+        ${(risk.key_risk_factors||[]).length ? `
+        <div style="margin-top:.75rem">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.06em">Key Risk Factors</div>
+          <ul class="step-list">${(risk.key_risk_factors||[]).map(f => `<li>${escHtml(f)}</li>`).join('')}</ul>
+        </div>` : ''}
+        ` : '<p style="color:var(--muted)">Not yet computed.</p>'}
+      </div>
+
+      <!-- Policy Validation -->
+      <div class="card">
+        <h3>Policy Validation</h3>
+        ${policy.validation_summary ? `
+        <div class="info-row">
+          <span class="info-key">Status</span>
+          <span class="info-val">${policy.is_policy_valid ? '<span class="badge badge-green">Valid</span>' : '<span class="badge badge-red">Invalid</span>'}</span>
+        </div>
+        ${(policy.violations||[]).length ? `
+        <div style="margin-top:.75rem">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.06em">Violations</div>
+          <ul class="step-list">${(policy.violations||[]).map(v => `<li style="color:var(--red)">${escHtml(v)}</li>`).join('')}</ul>
+        </div>` : ''}
+        ${(policy.eligibility_flags||[]).length ? `
+        <div style="margin-top:.75rem">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.06em">Eligibility Flags</div>
+          <ul class="step-list">${(policy.eligibility_flags||[]).map(f => `<li style="color:var(--yellow)">${escHtml(f)}</li>`).join('')}</ul>
+        </div>` : ''}
+        <div style="margin-top:.75rem;font-size:12px;color:var(--muted)">${escHtml(policy.validation_summary||'')}</div>
+        ` : '<p style="color:var(--muted)">Not yet computed.</p>'}
+      </div>
+    </div>
+
+    <!-- Row 2: Correlation -->
+    ${corr.overall_correlation_risk ? `
+    <div class="card">
+      <h3>Correlation Analysis</h3>
+      <div class="info-row">
+        <span class="info-key">Overall Correlation Risk</span>
+        <span class="info-val">${riskBadge(corr.overall_correlation_risk)}</span>
+      </div>
+      <div style="margin:.75rem 0;font-size:13px">${escHtml(corr.summary||'')}</div>
+      ${(corr.signals||[]).length ? `
+      <div style="font-size:11px;color:var(--muted);margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.06em">Signals</div>
+      ${(corr.signals||[]).map(s => `
+        <div class="signal-item">
+          <div class="signal-header">
+            <span class="badge badge-blue">${escHtml(s.signal_type)}</span>
+            ${severityBadge(s.severity)}
+          </div>
+          <div style="font-size:13px">${escHtml(s.description)}</div>
+        </div>`).join('')}` : ''}
+    </div>` : ''}
+
+    <!-- Row 3: Recommendation -->
+    ${rec.decision ? `
+    <div class="card">
+      <h3>Investigation Recommendation</h3>
+      <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1rem;flex-wrap:wrap">
+        <div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:.25rem;text-transform:uppercase;letter-spacing:.06em">Decision</div>
+          <div style="font-size:1.5rem;font-weight:700">${decisionBadge(rec.decision)}</div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:.25rem;text-transform:uppercase;letter-spacing:.06em">Priority</div>
+          <div style="font-size:1.5rem;font-weight:700;color:var(--accent)">${escHtml(rec.priority||'')}</div>
+        </div>
+        <div style="flex:1;text-align:right">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:.25rem">Est. fraud savings</div>
+          <div style="font-size:1.1rem;font-weight:600;color:var(--green)">${escHtml(rec.estimated_fraud_savings||'N/A')}</div>
+        </div>
+      </div>
+      ${rec.escalation_reason ? `<div class="error-box" style="margin-bottom:.75rem">Escalation: ${escHtml(rec.escalation_reason)}</div>` : ''}
+      <div style="font-size:13px;color:var(--muted);margin-bottom:.5rem">${escHtml(rec.evidence_summary||'')}</div>
+      ${(rec.investigation_steps||[]).length ? `
+      <div style="font-size:11px;color:var(--muted);margin:.75rem 0 .4rem;text-transform:uppercase;letter-spacing:.06em">Investigation Steps</div>
+      <ul class="step-list">${(rec.investigation_steps||[]).map((s,i)=>`<li><strong>${i+1}.</strong> ${escHtml(s)}</li>`).join('')}</ul>` : ''}
+    </div>` : ''}
+  `;
+}
+
+// ── Correlation ────────────────────────────────────────────────────────
+async function runCorrelation() {
+  const q = document.getElementById('c-query').value.trim();
+  if (!q) return;
+  const topk = parseInt(document.getElementById('c-topk').value) || 10;
+
+  loading('c-results', 'Detecting cross-claim patterns…');
+  document.getElementById('c-btn').disabled = true;
+
+  try {
+    const res = await fetch(`${getBase()}/correlate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: q, top_k: topk }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || res.statusText);
+    renderCorrelation(data);
+  } catch (e) {
+    error('c-results', e.message);
+  } finally {
+    document.getElementById('c-btn').disabled = false;
+  }
+}
+
+function renderCorrelation(data) {
+  const el = document.getElementById('c-results');
+  const statSignals = data.statistical_pre_signals || {};
+  const hasStats = Object.keys(statSignals).length > 0;
+
+  el.innerHTML = `
+    <div class="card">
+      <h3>Correlation Summary</h3>
+      <div class="info-row">
+        <span class="info-key">Overall Risk</span>
+        <span class="info-val">${riskBadge(data.overall_correlation_risk)}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-key">Claims Analysed</span>
+        <span class="info-val">${data.claims_analysed}</span>
+      </div>
+      ${data.crag_triggered ? '<div class="info-row"><span class="info-key">CRAG</span><span class="info-val"><span class="badge badge-purple">Triggered</span></span></div>' : ''}
+      <div style="margin-top:.75rem;font-size:13px">${escHtml(data.summary||'')}</div>
+    </div>
+
+    ${hasStats ? `
+    <div class="card">
+      <h3>Statistical Pre-Signals (Rule-Based)</h3>
+      ${Object.entries(statSignals).map(([k,v]) => `
+        <div class="info-row">
+          <span class="info-key">${escHtml(k)}</span>
+          <span class="info-val">${escHtml(String(v))}</span>
+        </div>`).join('')}
+    </div>` : ''}
+
+    ${(data.signals||[]).length ? `
+    <div class="card">
+      <h3>Detected Signals (${data.signals.length})</h3>
+      ${data.signals.map(s => `
+        <div class="signal-item">
+          <div class="signal-header">
+            <span class="badge badge-blue">${escHtml(s.signal_type)}</span>
+            ${severityBadge(s.severity)}
+          </div>
+          <div style="font-size:13px;margin:.3rem 0">${escHtml(s.description)}</div>
+          ${s.affected_claims?.length ? `<div style="font-size:11px;color:var(--muted)">Affected: ${s.affected_claims.join(', ')}</div>` : ''}
+        </div>`).join('')}
+    </div>` : ''}
+
+    ${(data.investigation_flags||[]).length ? `
+    <div class="card">
+      <h3>Investigation Flags</h3>
+      <ul class="step-list">
+        ${data.investigation_flags.map(f => `<li>${escHtml(f)}</li>`).join('')}
+      </ul>
+    </div>` : ''}
+  `;
+}
+
+// ── Ingest ─────────────────────────────────────────────────────────────
+async function ingestData() {
+  document.getElementById('ingest-msg').textContent = 'Ingesting…';
+  try {
+    const res = await fetch(`${getBase()}/ingest`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reset: false }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || res.statusText);
+    document.getElementById('ingest-msg').textContent =
+      `Done ✓ — ${data.records_ingested} records ingested`;
+  } catch (e) {
+    document.getElementById('ingest-msg').textContent = 'Error: ' + e.message;
+    document.getElementById('ingest-msg').style.color = 'var(--red)';
+  }
+}
+
+// ── XSS helper ────────────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Initialise API base input
+document.getElementById('api-base-input').value = API_BASE;
+</script>
+</body>
+</html>

@@ -15,24 +15,29 @@ An AI-powered microservice that helps insurance operations teams detect fraud, r
 ## Project Structure
 
 ```
-capstone_project/
-├── data/                         # Place fraud_oracle.csv here
-├── ingestion/ingest.py           # CSV → embed → ChromaDB
-├── retrieval/retriever.py        # Hybrid BM25 + semantic + reranker
+├── data/                          # Place fraud_oracle.csv here
+├── ingestion/ingest.py            # CSV → embed → ChromaDB
+├── retrieval/retriever.py         # Hybrid BM25 + semantic + cross-encoder reranker
 ├── agents/
-│   ├── fraud_retrieval_agent.py  # CRAG-powered claim retrieval
-│   ├── risk_scoring_agent.py     # Fraud probability scoring
-│   ├── policy_validation_agent.py
-│   └── recommendation_agent.py  # Final investigation report
-├── pipeline/graph.py             # LangGraph orchestration + HITL
-├── guardrails/guards.py          # Input validation + PII redaction
+│   ├── fraud_retrieval_agent.py   # CRAG-powered claim retrieval
+│   ├── correlation_agent.py       # Cross-claim fraud pattern detection
+│   ├── risk_scoring_agent.py      # Fraud probability scoring (0–1)
+│   ├── policy_validation_agent.py # Policy compliance checking
+│   ├── recommendation_agent.py    # Final investigation report
+│   └── a2a_protocol.py            # Agent-to-Agent communication protocol
+├── pipeline/graph.py              # LangGraph orchestration + HITL + A2A
+├── guardrails/guards.py           # Input validation + PII redaction
 ├── api/
-│   ├── main.py                   # FastAPI app entry point
+│   ├── main.py                    # FastAPI app entry point
 │   ├── schemas.py
-│   └── routes/                   # ingest · query · analyze
-├── evaluation/evaluate.py        # DeepEval + Ragas + LLM-as-Judge
-├── monitoring/tracer.py          # LangSmith setup
-├── config.py                     # Settings (pydantic-settings)
+│   └── routes/                    # ingest · query · analyze · correlate
+├── frontend/index.html            # Claims intelligence dashboard (HTML/JS)
+├── evaluation/evaluate.py         # DeepEval + Ragas + LLM-as-Judge
+├── monitoring/tracer.py           # LangSmith setup
+├── docs/
+│   ├── architecture.md            # System architecture + Mermaid diagram
+│   └── design.md                  # Design decisions and trade-offs
+├── config.py                      # Settings (pydantic-settings)
 ├── requirements.txt
 ├── Dockerfile
 ├── docker-compose.yml
@@ -45,7 +50,7 @@ capstone_project/
 
 ### 1. Get the dataset
 
-Download `fraud_oracle.csv` from Kaggle — [Vehicle Insurance Claim Fraud Detection](https://www.kaggle.com/datasets/shivamb/vehicle-claim-fraud-detection) and place it in `capstone_project/data/fraud_oracle.csv`.
+Download `fraud_oracle.csv` from Kaggle — [Vehicle Insurance Claim Fraud Detection](https://www.kaggle.com/datasets/shivamb/vehicle-claim-fraud-detection) and place it in `data/fraud_oracle.csv`.
 
 ### 2. Configure environment
 
@@ -73,6 +78,10 @@ python ingestion/ingest.py
 uvicorn api.main:app --reload --port 8000
 ```
 
+### 6. Open the dashboard
+
+Open `frontend/index.html` in your browser (no build step needed). Point it at `http://localhost:8000` in the Settings tab.
+
 Visit **http://localhost:8000/docs** for the interactive Swagger UI.
 
 ---
@@ -80,10 +89,8 @@ Visit **http://localhost:8000/docs** for the interactive Swagger UI.
 ## Docker
 
 ```bash
-# Build and run
 docker-compose up --build
-
-# API will be available at http://localhost:8000
+# API available at http://localhost:8000
 ```
 
 ---
@@ -120,8 +127,9 @@ Run the full multi-agent fraud investigation pipeline.
 **Response includes:**
 - `risk_assessment` — fraud probability, risk level, key risk factors
 - `policy_validation` — violations, eligibility flags
+- `correlation_signals` — cross-claim pattern analysis
 - `recommendation` — decision (APPROVE/INVESTIGATE/ESCALATE/REJECT), priority, investigation steps
-- `awaiting_human` — `true` if HITL is triggered (score in uncertainty band)
+- `awaiting_human` — `true` if HITL is triggered (score in uncertainty band 0.4–0.6)
 - `thread_id` — use this to resume after human review
 
 ### POST `/analyze/resume`
@@ -132,6 +140,16 @@ Resume a paused HITL analysis.
   "human_decision": "escalate"
 }
 ```
+
+### POST `/correlate`
+Standalone cross-claim fraud pattern analysis.
+```json
+{
+  "query": "multiple vehicle fire claims in the northeast region",
+  "top_k": 10
+}
+```
+Returns detected signals: REPEAT_CUSTOMER, REGION_HOTSPOT, AMOUNT_CLUSTER, TEMPORAL_BURST, PATTERN_MATCH.
 
 ---
 
@@ -160,6 +178,12 @@ curl -X POST http://localhost:8000/analyze \
       "Claim amount significantly high"
     ]
   },
+  "correlation_signals": {
+    "overall_correlation_risk": "HIGH",
+    "signals": [
+      { "signal_type": "PATTERN_MATCH", "severity": "HIGH", "description": "Similar total-loss fire claims with no police report pattern detected" }
+    ]
+  },
   "recommendation": {
     "decision": "ESCALATE",
     "priority": "P1",
@@ -168,7 +192,8 @@ curl -X POST http://localhost:8000/analyze \
       "Verify vehicle ownership and title history",
       "Review prior claim history for patterns",
       "Conduct recorded statement with claimant"
-    ]
+    ],
+    "estimated_fraud_savings": "$72,000"
   }
 }
 ```
@@ -189,11 +214,21 @@ Runs DeepEval (faithfulness, answer relevancy, contextual precision) and Ragas (
 
 | Feature | Description |
 |---------|-------------|
-| Hybrid Retrieval | BM25 + semantic vector search + cross-encoder reranker |
-| Corrective RAG | Auto-refines query when retrieval confidence is low |
+| Hybrid Retrieval | BM25 + semantic vector search + cross-encoder reranker (RRF fusion) |
+| Corrective RAG | Auto-refines query when retrieval confidence < 0.30 |
+| Fraud Anomaly Correlation | Statistical + LLM cross-claim pattern detection (5 signal types) |
+| A2A Communication | Risk/policy agents send typed messages (ESCALATE/FLAG/APPROVE) to recommendation agent |
 | HITL | Pauses pipeline for human review on borderline cases (0.4–0.6 score band) |
-| Multi-Agent | 4 specialised agents orchestrated via LangGraph with checkpointing |
-| Guardrails | Input length validation, prompt injection detection, PII redaction |
+| Multi-Agent | 5 specialised agents orchestrated via LangGraph with MemorySaver checkpointing |
+| Guardrails | Input length validation, prompt injection detection, Presidio PII redaction |
 | Evaluation | DeepEval + Ragas + LLM-as-Judge |
 | Monitoring | Full LangSmith tracing on all LLM and agent calls |
+| Frontend Dashboard | Single-file HTML/JS dashboard (Claim Search, Full Analysis, Correlation tabs) |
 | Docker | Single `docker-compose up` deployment |
+
+---
+
+## Documentation
+
+- [Architecture Diagram](docs/architecture.md) — system overview and Mermaid flowchart
+- [Design Document](docs/design.md) — trade-off explanations for every major decision

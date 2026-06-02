@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from config import settings
 from monitoring.tracer import setup_langsmith
-from api.routes import ingest, query, analyze
+from api.routes import ingest, query, analyze, correlate
 
 
 @asynccontextmanager
@@ -37,6 +37,7 @@ app.add_middleware(
 app.include_router(ingest.router)
 app.include_router(query.router)
 app.include_router(analyze.router)
+app.include_router(correlate.router)
 
 
 @app.get("/", tags=["Health"])

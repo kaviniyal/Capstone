@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Any, Optional
 from pydantic import BaseModel, Field
 
 
@@ -51,3 +51,27 @@ class ClaimResponse(BaseModel):
     claim_id: str
     document: str
     metadata: dict
+
+
+class CorrelationRequest(BaseModel):
+    query: str = Field(..., min_length=5, description="Natural language claim investigation query.")
+    top_k: int = Field(default=10, ge=1, le=50, description="Number of similar claims to retrieve for correlation.")
+    filters: Optional[dict] = Field(default=None, description="Metadata filters e.g. {\"fraud_label\": \"Y\"}")
+
+
+class CorrelationSignalSchema(BaseModel):
+    signal_type: str
+    description: str
+    affected_claims: list[str]
+    severity: str
+
+
+class CorrelationResponse(BaseModel):
+    query_used: str
+    crag_triggered: bool
+    claims_analysed: int
+    signals: list[dict]
+    overall_correlation_risk: str
+    summary: str
+    investigation_flags: list[str]
+    statistical_pre_signals: dict
