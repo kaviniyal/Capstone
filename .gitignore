@@ -16,6 +16,7 @@ env/
 # Generated data stores
 data/chroma_db/
 data/*.csv
+data/docs_cache.json
 *.sqlite3
 *.db
 

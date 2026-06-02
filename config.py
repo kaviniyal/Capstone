@@ -8,8 +8,14 @@ class Settings(BaseSettings):
     langchain_api_key: str = ""
     langchain_project: str = "insurance-claims-intelligence"
 
-    chroma_persist_dir: str = "./data/chroma_db"
+    # Pinecone
+    pinecone_api_key: str = ""
+    pinecone_index_name: str = "insurance-claims"
+    pinecone_cloud: str = "aws"
+    pinecone_region: str = "us-east-1"
+
     embedding_model: str = "text-embedding-3-small"
+    embedding_dimension: int = 1536  # text-embedding-3-small output size
     llm_model: str = "gpt-4o-mini"
 
     hitl_low_threshold: float = 0.4
