@@ -166,7 +166,7 @@ def run_deepeval() -> dict:
 
     llm = ChatOpenAI(
         model=settings.llm_model,
-        temperature=0,
+        temperature=0.2,
         openai_api_key=settings.openai_api_key,
         openai_api_base=settings.openai_base_url,
     )
@@ -251,7 +251,7 @@ def run_ragas() -> dict:
 
     llm = ChatOpenAI(
         model=settings.llm_model,
-        temperature=0,
+        temperature=0.2,
         openai_api_key=settings.openai_api_key,
         openai_api_base=settings.openai_base_url,
     )
@@ -311,7 +311,7 @@ def run_llm_judge() -> list[dict]:
 
     llm = ChatOpenAI(
         model=settings.llm_model,
-        temperature=0,
+        temperature=0.2,
         openai_api_key=settings.openai_api_key,
         openai_api_base=settings.openai_base_url,
     )
