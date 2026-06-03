@@ -28,11 +28,19 @@ RECOMMEND_PROMPT = ChatPromptTemplate.from_messages([
     ("system",
      "You are a senior insurance fraud investigation supervisor. Based on the "
      "complete analysis below, produce a clear, actionable investigation recommendation.\n\n"
-     "Decision rules:\n"
+
+     "HUMAN DECISION RULE (HIGHEST PRIORITY — overrides everything else):\n"
+     "  If human_decision = 'approve'  → decision MUST be APPROVE. Do not escalate.\n"
+     "  If human_decision = 'escalate' → decision MUST be ESCALATE.\n"
+     "  If human_decision = 'reject'   → decision MUST be REJECT.\n"
+     "  Human decision overrides AI risk score, A2A messages, and policy violations.\n\n"
+
+     "AI Decision rules (only apply when human_decision is empty):\n"
      "  APPROVE   — fraud_probability < 0.3 and no policy violations\n"
      "  INVESTIGATE — fraud_probability 0.3–0.6 or minor violations\n"
-     "  ESCALATE  — fraud_probability > 0.6 or critical violations or ESCALATE A2A message received\n"
+     "  ESCALATE  — fraud_probability > 0.6 or critical violations or ESCALATE A2A received\n"
      "  REJECT    — clear policy ineligibility\n\n"
+
      "Priority rules:\n"
      "  P1 — CRITICAL risk or claim_amount > 50000\n"
      "  P2 — HIGH risk\n"
@@ -40,6 +48,7 @@ RECOMMEND_PROMPT = ChatPromptTemplate.from_messages([
      "  P4 — LOW risk\n\n"
      "{format_instructions}"),
     ("human",
+     "Human Decision (HIGHEST PRIORITY): {human_decision}\n\n"
      "Original claim query: {query}\n\n"
      "Risk Assessment:\n{risk_assessment}\n\n"
      "Policy Validation:\n{policy_validation}\n\n"
@@ -56,6 +65,7 @@ def run_recommendation_agent(
     retrieved_claims: list[dict],
     correlation_signals: dict | None = None,
     a2a_messages: list[dict] | None = None,
+    human_decision: str = "",
 ) -> dict:
     """
     Generate the final investigation recommendation.
@@ -85,9 +95,16 @@ def run_recommendation_agent(
             for m in a2a_messages
         )
 
+    human_dec_text = (
+        f"'{human_decision}' — THIS OVERRIDES ALL AI DECISIONS. "
+        f"Decision MUST be {human_decision.upper()}."
+        if human_decision else "None — use AI decision rules."
+    )
+
     chain = RECOMMEND_PROMPT | llm | _parser
     rec: InvestigationRecommendation = chain.invoke({
         "query":               query,
+        "human_decision":      human_dec_text,
         "risk_assessment":     str(risk_assessment),
         "policy_validation":   str(policy_validation),
         "correlation_signals": corr_text,

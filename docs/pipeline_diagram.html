@@ -1,0 +1,1215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ClaimsIQ — Pipeline Diagram</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #f0f4ff;
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+    font-size: 13px;
+    color: #0f172a;
+    min-height: 100vh;
+    padding: 2rem;
+  }
+
+  /* ── Header ── */
+  .header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+  }
+  .header .brand {
+    font-size: 2rem; font-weight: 900;
+    background: linear-gradient(90deg,#0055ff,#00d4ff);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    letter-spacing: .06em; text-transform: uppercase;
+  }
+  .header .sub {
+    font-size: 14px; color: #64748b; margin-top: .3rem; font-weight: 500;
+  }
+  .header .tagline {
+    font-size: 12px; color: #ff6b35; font-weight: 700;
+    font-style: italic; margin-top: .2rem;
+  }
+
+  /* ── Pipeline container ── */
+  .pipeline {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  /* ── Node card ── */
+  .node {
+    width: 100%;
+    background: #fff;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 20px rgba(0,0,0,.07);
+    overflow: hidden;
+    position: relative;
+  }
+  .node-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    cursor: pointer;
+    user-select: none;
+  }
+  .node-header:hover { filter: brightness(.97); }
+
+  .node-num {
+    width: 36px; height: 36px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 900; color: #fff; flex-shrink: 0;
+  }
+  .node-icon { font-size: 22px; flex-shrink: 0; }
+  .node-title-wrap { flex: 1 }
+  .node-title { font-size: 15px; font-weight: 800; }
+  .node-desc  { font-size: 11.5px; color: #64748b; margin-top: .1rem; }
+  .node-toggle {
+    font-size: 18px; color: #94a3b8; transition: transform .25s;
+    flex-shrink: 0;
+  }
+  .node.open .node-toggle { transform: rotate(180deg); }
+
+  /* ── Node body ── */
+  .node-body {
+    display: none;
+    border-top: 1px solid #f1f5f9;
+    padding: 1.25rem 1.5rem 1.5rem;
+  }
+  .node.open .node-body { display: block; }
+
+  /* ── Internal steps ── */
+  .steps { display: flex; flex-direction: column; gap: .75rem; }
+
+  .step {
+    display: flex;
+    gap: .75rem;
+    align-items: flex-start;
+    background: #f8fafc;
+    border-radius: 10px;
+    padding: .75rem 1rem;
+    border: 1px solid #e2e8f0;
+  }
+  .step-icon {
+    width: 30px; height: 30px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; flex-shrink: 0;
+  }
+  .step-content { flex: 1 }
+  .step-name { font-weight: 700; font-size: 12.5px; margin-bottom: .2rem; }
+  .step-detail { font-size: 11.5px; color: #64748b; line-height: 1.6; }
+
+  .tag {
+    display: inline-block; border-radius: 20px;
+    font-size: 10px; font-weight: 700; padding: 2px 8px;
+    margin: .15rem .15rem 0 0;
+    text-transform: uppercase; letter-spacing: .04em;
+  }
+
+  /* ── Output box ── */
+  .output-box {
+    margin-top: 1rem;
+    background: #f0f4ff;
+    border: 1.5px solid #bfdbfe;
+    border-radius: 10px;
+    padding: .75rem 1rem;
+  }
+  .output-box .out-label {
+    font-size: 10px; font-weight: 800; color: #0055ff;
+    text-transform: uppercase; letter-spacing: .08em; margin-bottom: .4rem;
+  }
+  .output-box .out-items { display: flex; flex-wrap: wrap; gap: .35rem; }
+  .out-item {
+    background: #fff; border: 1px solid #bfdbfe;
+    border-radius: 6px; padding: 3px 9px;
+    font-size: 11px; font-weight: 600; color: #0055ff;
+  }
+
+  /* ── Arrow ── */
+  .arrow {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 0; margin: 0;
+  }
+  .arrow-line {
+    width: 3px; height: 28px;
+    background: linear-gradient(to bottom, #0055ff, #00d4ff);
+    border-radius: 2px;
+  }
+  .arrow-head {
+    width: 0; height: 0;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-top: 12px solid #00d4ff;
+  }
+  .arrow-label {
+    font-size: 10px; font-weight: 700; color: #0055ff;
+    background: #e8f1fd; border: 1px solid #bfdbfe;
+    border-radius: 20px; padding: 2px 10px; margin: .3rem 0;
+  }
+
+  /* ── HITL split ── */
+  .hitl-split {
+    display: flex; gap: 1rem; margin-top: .75rem;
+  }
+  .hitl-path {
+    flex: 1; border-radius: 10px; padding: .75rem 1rem;
+    border: 1.5px solid;
+  }
+  .hitl-path.yes { background: #fffbeb; border-color: #fcd34d; }
+  .hitl-path.no  { background: #f0fdf4; border-color: #86efac; }
+  .hitl-path-title { font-size: 11px; font-weight: 800; margin-bottom: .3rem; }
+  .hitl-path.yes .hitl-path-title { color: #92400e; }
+  .hitl-path.no  .hitl-path-title { color: #166534; }
+  .hitl-path p { font-size: 11px; color: #64748b; line-height: 1.6; }
+
+  /* ── A2A badge ── */
+  .a2a-box {
+    margin-top: .75rem;
+    background: linear-gradient(135deg,#fef3c7,#fff7ed);
+    border: 1.5px solid #fcd34d;
+    border-radius: 10px; padding: .75rem 1rem;
+  }
+  .a2a-label { font-size: 10px; font-weight: 800; color: #92400e;
+               text-transform: uppercase; letter-spacing: .08em; margin-bottom: .4rem; }
+  .a2a-msg {
+    display: flex; gap: .5rem; align-items: flex-start;
+    margin-bottom: .3rem; font-size: 11px; color: #78350f;
+  }
+  .a2a-type {
+    font-size: 9px; font-weight: 900; padding: 2px 7px; border-radius: 4px;
+    text-transform: uppercase; flex-shrink: 0; letter-spacing: .04em;
+  }
+  .a2a-type.esc { background: #fee2e2; color: #b91c1c; }
+  .a2a-type.flg { background: #fef9c3; color: #854d0e; }
+  .a2a-type.app { background: #dcfce7; color: #166534; }
+
+  /* ── Final result banner ── */
+  .result-banner {
+    width: 100%; max-width: 900px; margin: 0 auto;
+    background: linear-gradient(135deg,#0a0e1a,#0d1b3e);
+    border-radius: 16px; padding: 1.5rem 2rem;
+    display: flex; flex-wrap: wrap; gap: 1.5rem; justify-content: center;
+    box-shadow: 0 8px 32px rgba(0,0,0,.2);
+  }
+  .result-item { text-align: center; }
+  .result-value {
+    font-size: 1.3rem; font-weight: 900; color: #fff;
+  }
+  .result-label {
+    font-size: 10px; color: rgba(255,255,255,.5);
+    text-transform: uppercase; letter-spacing: .08em; margin-top: .2rem;
+  }
+  .result-badge {
+    display: inline-block; border-radius: 8px;
+    padding: .35rem .9rem; font-size: 13px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: .04em;
+  }
+
+  /* ── Legend ── */
+  .legend {
+    display: flex; flex-wrap: wrap; gap: .75rem; justify-content: center;
+    max-width: 900px; margin: 0 auto 1.5rem;
+  }
+  .legend-item {
+    display: flex; align-items: center; gap: .4rem;
+    background: #fff; border: 1px solid #e2e8f0;
+    border-radius: 20px; padding: .3rem .85rem;
+    font-size: 11.5px; font-weight: 600;
+  }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="brand">ClaimsIQ</div>
+  <div class="sub">AI-Powered Insurance Claims Intelligence — Pipeline Architecture</div>
+  <div class="tagline">Fraud tried. AI replied. ⚡</div>
+</div>
+
+<!-- Legend -->
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#6366f1"></div> Input Processing</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#0055ff"></div> Retrieval</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#0891b2"></div> Pattern Detection</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div> Risk Scoring</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#7c3aed"></div> Validation</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div> Human Review</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#10b981"></div> Recommendation</div>
+</div>
+
+<div class="pipeline">
+
+  <!-- ═══ NODE 1 ═══ -->
+  <div class="node open" id="n1">
+    <div class="node-header" style="background:linear-gradient(135deg,#6366f108,#fff)" onclick="toggle('n1')">
+      <div class="node-num" style="background:#6366f1">01</div>
+      <div class="node-icon">🛡️</div>
+      <div class="node-title-wrap">
+        <div class="node-title" style="color:#6366f1">Guardrails — Input Validation</div>
+        <div class="node-desc">Safety gate — validates and sanitizes every query before it touches any AI agent</div>
+      </div>
+      <div class="node-toggle">▼</div>
+    </div>
+    <div class="node-body">
+      <div class="steps">
+        <div class="step">
+          <div class="step-icon" style="background:#e0e7ff">📏</div>
+          <div class="step-content">
+            <div class="step-name">Length Check</div>
+            <div class="step-detail">Query must be ≤ 2000 characters. If longer — truncate and add TRUNCATED flag. Prevents token overflow in LLM context window.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-icon" style="background:#fee2e2">🚫</div>
+          <div class="step-content">
+            <div class="step-name">Prompt Injection Detection</div>
+            <div class="step-detail">Scans for patterns like "ignore previous instructions", "act as", "jailbreak", "DAN". If found → BLOCKED, pipeline stops immediately.</div>
+            <div style="margin-top:.4rem">
+              <span class="tag" style="background:#fee2e2;color:#b91c1c">ignore previous instructions</span>
+              <span class="tag" style="background:#fee2e2;color:#b91c1c">act as</span>
+              <span class="tag" style="background:#fee2e2;color:#b91c1c">jailbreak</span>
+            </div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-icon" style="background:#fef9c3">🔐</div>
+          <div class="step-content">
+            <div class="step-name">PII Redaction</div>
+            <div class="step-detail">
+              <strong>Layer 1 — Microsoft Presidio (NLP):</strong> Detects PERSON, EMAIL, PHONE, SSN, CREDIT_CARD using spaCy en_core_web_lg model.<br>
+              <strong>Layer 2 — Regex fallback:</strong> Catches email, phone, SSN, card patterns if Presidio not installed.<br>
+              Replaces PII with [EMAIL], [PHONE], [SSN], [CARD] placeholders.
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="output-box">
+        <div class="out-label">Output → State</div>
+        <div class="out-items">
+          <span class="out-item">sanitized_query</span>
+          <span class="out-item">guardrail_flags: ["OK" | "TRUNCATED" | "INJECTION_DETECTED" | "PII_*"]</span>
+          <span class="out-item">blocked: true/false</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow"><div class="arrow-line"></div><span class="arrow-label">sanitized query</span><div class="arrow-head"></div></div>
+
+  <!-- ═══ NODE 2 ═══ -->
+  <div class="node" id="n2">
+    <div class="node-header" style="background:linear-gradient(135deg,#0055ff08,#fff)" onclick="toggle('n2')">
+      <div class="node-num" style="background:#0055ff">02</div>
+      <div class="node-icon">🔍</div>
+      <div class="node-title-wrap">
+        <div class="node-title" style="color:#0055ff">Hybrid Retrieval — Find Similar Claims</div>
+        <div class="node-desc">BM25 + Pinecone + RRF Fusion + Cross-Encoder Reranking + CRAG quality check</div>
+      </div>
+      <div class="node-toggle">▼</div>
+    </div>
+    <div class="node-body">
+      <div class="steps">
+        <div class="step">
+          <div class="step-icon" style="background:#dbeafe">🔤</div>
+          <div class="step-content">
+            <div class="step-name">BM25 — Keyword Search</div>
+            <div class="step-detail">Runs on docs_cache.json (15,420 documents in memory). Scores documents by word frequency using BM25Okapi. Returns top 15 by exact keyword match. Fast, no API call, finds specific terms like policy numbers.</div>
+            <span class="tag" style="background:#dbeafe;color:#1d4ed8">rank_bm25</span>
+            <span class="tag" style="background:#dbeafe;color:#1d4ed8">local · no API</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-icon" style="background:#e0f2fe">🧠</div>
+          <div class="step-content">
+            <div class="step-name">Pinecone — Semantic (Meaning) Search</div>
+            <div class="step-detail">Embeds query using OpenAI text-embedding-3-small (1536 dimensions). Queries Pinecone cloud vector database using cosine similarity. Returns top 15 by meaning — finds claims with same concept even if different words.</div>
+            <span class="tag" style="background:#e0f2fe;color:#0369a1">text-embedding-3-small</span>
+            <span class="tag" style="background:#e0f2fe;color:#0369a1">1536 dimensions</span>
+            <span class="tag" style="background:#e0f2fe;color:#0369a1">cosine similarity</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-icon" style="background:#f0fdf4">⚖️</div>
+          <div class="step-content">
+            <div class="step-name">RRF Fusion — Combine Both Lists</div>
+            <div class="step-detail">Reciprocal Rank Fusion merges BM25 (15) + Pinecone (15) results. Score = 1/(60+rank) for each list. No score normalisation needed — rank-based. Documents appearing in both lists score highest. Returns top 20 combined.</div>
+            <span class="tag" style="background:#f0fdf4;color:#166534">1/(60+rank)</span>
+            <span class="tag" style="background:#f0fdf4;color:#166534">rank-based</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-icon" style="background:#fdf4ff">🎯</div>
+          <div class="step-content">
+            <div class="step-name">Cross-Encoder Reranking</div>
+            <div class="step-detail">ms-marco-MiniLM-L-6-v2 reads query + each of 20 candidates TOGETHER. Gives precise relevance score. More accurate than bi-encoder because model sees both at once. Returns top 5 most relevant claims.</div>
+            <span class="tag" style="background:#fdf4ff;color:#7c3aed">ms-marco-MiniLM-L-6-v2</span>
+            <span class="tag" style="background:#fdf4ff;color:#7c3aed">local · CPU</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-icon" style="background:#fff7ed">🔄</div>
+          <div class="step-content">
+            <div class="step-name">CRAG — Quality Check</div>
+            <div class="step-detail">Corrective RAG checks average cross-encoder score of top 5. If avg &lt; 0.30 → results not confident enough → LLM rewrites query with more specific insurance terms → retry all 4 steps. Sets crag_triggered=True if retry needed.</div>
+            <span class="tag" style="background:#fff7ed;color:#c2410c">threshold: 0.30</span>
+            <span class="tag" style="background:#fff7ed;color:#c2410c">auto-retry</span>
+          </div>
+        </div>
+      </div>
+      <div class="output-box">
+        <div class="out-label">Output → State</div>
+        <div class="out-items">
+          <span class="out-item">retrieved_claims [5 documents with scores]</span>
+          <span class="out-item">query_used</span>
+          <span class="out-item">crag_triggered: true/false</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow"><div class="arrow-line"></div><span class="arrow-label">5 similar claims</span><div class="arrow-head"></div></div>
+
+  <!-- ═══ NODE 3 ═══ -->
+  <div class="node" id="n3">
+    <div class="node-header" style="background:linear-gradient(135deg,#0891b208,#fff)" onclick="toggle('n3')">
+      <div class="node-num" style="background:#0891b2">03</div>
+      <div class="node-icon">🔗</div>
+      <div class="node-title-wrap">
+        <div class="node-title" style="color:#0891b2">Correlation Agent — Cross-Claim Pattern Detection</div>
+        <div class="node-desc">Analyses the 5 retrieved claims together to find suspicious patterns across them</div>
+      </div>
+      <div class="node-toggle">▼</div>
+    </div>
+    <div class="node-body">
+      <div class="steps">
+        <div class="step">
+          <div class="step-icon" style="background:#e0f7fa">📊</div>
+          <div class="step-content">
+            <div class="step-name">Phase 1 — Statistical Pre-Filter (Pure Python · No LLM)</div>
+            <div class="step-detail">
+              Fast rule-based checks before any LLM call:<br>
+              • <strong>Region Hotspot:</strong> Count customer_region — flag if any region ≥ 2 occurrences<br>
+              • <strong>Fraud Density:</strong> Flag if &gt;60% of 5 claims are labelled fraud<br>
+              • <strong>Amount Clustering:</strong> Coefficient of Variation &lt;0.12 → suspiciously similar amounts<br>
+              • <strong>Repeat Customer:</strong> Same policy number appearing more than once
+            </div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-icon" style="background:#e0f7fa">🤖</div>
+          <div class="step-content">
+            <div class="step-name">Phase 2 — LLM Analysis (GPT-4o-mini)</div>
+            <div class="step-detail">Statistical signals injected into prompt. GPT-4o-mini analyses all 5 claims together and identifies named fraud patterns with severity levels.</div>
+            <div style="margin-top:.4rem; display:flex; flex-wrap:wrap; gap:.3rem">
+              <span class="tag" style="background:#e0f7fa;color:#0e7490">REPEAT_CUSTOMER</span>
+              <span class="tag" style="background:#e0f7fa;color:#0e7490">REGION_HOTSPOT</span>
+              <span class="tag" style="background:#e0f7fa;color:#0e7490">AMOUNT_CLUSTER</span>
+              <span class="tag" style="background:#e0f7fa;color:#0e7490">TEMPORAL_BURST</span>
+              <span class="tag" style="background:#e0f7fa;color:#0e7490">PATTERN_MATCH</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="output-box">
+        <div class="out-label">Output → State</div>
+        <div class="out-items">
+          <span class="out-item">correlation_signals.signals []</span>
+          <span class="out-item">overall_correlation_risk: LOW/MEDIUM/HIGH/CRITICAL</span>
+          <span class="out-item">summary</span>
+          <span class="out-item">investigation_flags []</span>
+          <span class="out-item">statistical_pre_signals {}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow"><div class="arrow-line"></div><span class="arrow-label">correlation signals</span><div class="arrow-head"></div></div>
+
+  <!-- ═══ NODE 4 ═══ -->
+  <div class="node" id="n4">
+    <div class="node-header" style="background:linear-gradient(135deg,#ef444408,#fff)" onclick="toggle('n4')">
+      <div class="node-num" style="background:#ef4444">04</div>
+      <div class="node-icon">📊</div>
+      <div class="node-title-wrap">
+        <div class="node-title" style="color:#ef4444">Risk Scoring Agent — Fraud Probability</div>
+        <div class="node-desc">Estimates fraud probability 0–1 using GPT-4o-mini and posts A2A messages</div>
+      </div>
+      <div class="node-toggle">▼</div>
+    </div>
+    <div class="node-body">
+      <div class="steps">
+        <div class="step">
+          <div class="step-icon" style="background:#fee2e2">🤖</div>
+          <div class="step-content">
+            <div class="step-name">LLM Fraud Probability Scoring</div>
+            <div class="step-detail">GPT-4o-mini reads the query + top 5 retrieved claims. Estimates fraud probability based on how many retrieved claims are fraudulent and what patterns they share with the query.</div>
+            <div style="margin-top:.4rem">
+              <span class="tag" style="background:#f0fdf4;color:#166534">0.0–0.3 → LOW</span>
+              <span class="tag" style="background:#fef9c3;color:#854d0e">0.3–0.5 → MEDIUM</span>
+              <span class="tag" style="background:#fee2e2;color:#b91c1c">0.5–0.75 → HIGH</span>
+              <span class="tag" style="background:#fecdd3;color:#9f1239">0.75–1.0 → CRITICAL</span>
+            </div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-icon" style="background:#fef9c3">⚡</div>
+          <div class="step-content">
+            <div class="step-name">HITL Band Check</div>
+            <div class="step-detail">Sets requires_human_review=True if probability falls in uncertainty band [0.4, 0.6]. This flag will be read by Node 6 to decide whether to pause the pipeline.</div>
+            <span class="tag" style="background:#fef9c3;color:#854d0e">band: 0.4 → 0.6</span>
+          </div>
+        </div>
+      </div>
+      <div class="a2a-box">
+        <div class="a2a-label">📨 A2A Messages Posted → recommendation_agent</div>
+        <div class="a2a-msg"><span class="a2a-type esc">ESCALATE</span> If fraud_prob &gt; 0.6 → "High fraud probability detected: {prob}"</div>
+        <div class="a2a-msg"><span class="a2a-type app">APPROVE</span> If fraud_prob &lt; 0.4 → "Low risk — safe to approve"</div>
+        <div class="a2a-msg"><span class="a2a-type flg">FLAG</span> If correlation_risk = HIGH/CRITICAL → "CORRELATION_{level}"</div>
+      </div>
+      <div class="output-box">
+        <div class="out-label">Output → State</div>
+        <div class="out-items">
+          <span class="out-item">risk_assessment.fraud_probability</span>
+          <span class="out-item">risk_level: LOW/MEDIUM/HIGH/CRITICAL</span>
+          <span class="out-item">confidence</span>
+          <span class="out-item">key_risk_factors []</span>
+          <span class="out-item">requires_human_review</span>
+          <span class="out-item">a2a_messages +ESCALATE/APPROVE/FLAG</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow"><div class="arrow-line"></div><span class="arrow-label">fraud score + A2A</span><div class="arrow-head"></div></div>
+
+  <!-- ═══ NODE 5 ═══ -->
+  <div class="node" id="n5">
+    <div class="node-header" style="background:linear-gradient(135deg,#7c3aed08,#fff)" onclick="toggle('n5')">
+      <div class="node-num" style="background:#7c3aed">05</div>
+      <div class="node-icon">📋</div>
+      <div class="node-title-wrap">
+        <div class="node-title" style="color:#7c3aed">Policy Validation Agent — Compliance Check</div>
+        <div class="node-desc">Checks the claim against insurance policy rules — finds explicit violations only</div>
+      </div>
+      <div class="node-toggle">▼</div>
+    </div>
+    <div class="node-body">
+      <div class="steps">
+        <div class="step">
+          <div class="step-icon" style="background:#ede9fe">📜</div>
+          <div class="step-content">
+            <div class="step-name">Compliance Rules Check (GPT-4o-mini)</div>
+            <div class="step-detail">
+              Checks ONLY what is EXPLICITLY stated in the query:<br>
+              • Police report explicitly NOT filed → VIOLATION<br>
+              • Claim filed immediately after policy start → VIOLATION<br>
+              • Claim amount exceeds vehicle value → VIOLATION<br>
+              • Multiple recent claims explicitly mentioned → VIOLATION<br><br>
+              <strong>Key rule:</strong> "police report" alone means FILED. Only flag if query says "no police report" or "not filed".
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="a2a-box">
+        <div class="a2a-label">📨 A2A Message Posted → recommendation_agent</div>
+        <div class="a2a-msg"><span class="a2a-type flg">FLAG</span> If violations found → "POLICY_VIOLATION: {detail}"</div>
+      </div>
+      <div class="output-box">
+        <div class="out-label">Output → State</div>
+        <div class="out-items">
+          <span class="out-item">policy_validation.is_policy_valid</span>
+          <span class="out-item">violations []</span>
+          <span class="out-item">eligibility_flags []</span>
+          <span class="out-item">validation_summary</span>
+          <span class="out-item">a2a_messages +FLAG</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow"><div class="arrow-line"></div><span class="arrow-label">violations + A2A</span><div class="arrow-head"></div></div>
+
+  <!-- ═══ NODE 6 ═══ -->
+  <div class="node" id="n6">
+    <div class="node-header" style="background:linear-gradient(135deg,#f59e0b08,#fff)" onclick="toggle('n6')">
+      <div class="node-num" style="background:#f59e0b">06</div>
+      <div class="node-icon">👤</div>
+      <div class="node-title-wrap">
+        <div class="node-title" style="color:#b45309">HITL Check — Human-in-the-Loop Gate</div>
+        <div class="node-desc">Pauses the pipeline if fraud score is in the uncertainty band (0.4–0.6)</div>
+      </div>
+      <div class="node-toggle">▼</div>
+    </div>
+    <div class="node-body">
+      <div class="steps">
+        <div class="step">
+          <div class="step-icon" style="background:#fef9c3">🔢</div>
+          <div class="step-content">
+            <div class="step-name">Pure Python Logic — No LLM Call</div>
+            <div class="step-detail">Reads fraud_probability from Node 4. Checks if it falls between HITL_LOW (0.4) and HITL_HIGH (0.6) configured in .env. Simple boolean check — fastest node in the pipeline.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hitl-split">
+        <div class="hitl-path yes">
+          <div class="hitl-path-title">⚠ YES — Score in Band (0.4–0.6)</div>
+          <p>awaiting_human = True<br>Pipeline PAUSES via MemorySaver checkpoint<br>API returns to frontend with awaiting_human=True<br>Human reviews and clicks Approve / Escalate / Reject<br>/analyze/resume called → pipeline continues</p>
+        </div>
+        <div class="hitl-path no">
+          <div class="hitl-path-title">✓ NO — Score Outside Band</div>
+          <p>awaiting_human = False<br>Pipeline continues automatically to Node 7<br>No human input needed<br>Recommendation generated by AI alone</p>
+        </div>
+      </div>
+
+      <div style="margin-top:.75rem; background:#f8fafc; border-radius:10px; padding:.75rem 1rem; border:1px solid #e2e8f0">
+        <div style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.5rem">HITL Band Visualised</div>
+        <div style="display:flex;align-items:center;gap:.5rem;font-size:11px;font-weight:700">
+          <span style="color:#10b981">0.0</span>
+          <div style="flex:1;background:#dcfce7;border-radius:4px;height:18px;display:flex;align-items:center;justify-content:center;color:#166534;font-size:10px">AUTO APPROVE</div>
+          <div style="flex:.8;background:#fef9c3;border-radius:4px;height:18px;display:flex;align-items:center;justify-content:center;color:#854d0e;font-size:10px;border:2px solid #fcd34d">HUMAN REVIEW</div>
+          <div style="flex:1;background:#fee2e2;border-radius:4px;height:18px;display:flex;align-items:center;justify-content:center;color:#b91c1c;font-size:10px">AUTO ESCALATE</div>
+          <span style="color:#ef4444">1.0</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:#94a3b8;margin-top:.3rem;padding:0 2px">
+          <span>0.0</span><span>0.4</span><span>0.6</span><span>1.0</span>
+        </div>
+      </div>
+
+      <div class="output-box">
+        <div class="out-label">Output → State</div>
+        <div class="out-items">
+          <span class="out-item">awaiting_human: true/false</span>
+          <span class="out-item">human_decision: "" | "approve" | "escalate" | "reject"</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow"><div class="arrow-line"></div><span class="arrow-label">continue / human decision</span><div class="arrow-head"></div></div>
+
+  <!-- ═══ NODE 7 ═══ -->
+  <div class="node" id="n7">
+    <div class="node-header" style="background:linear-gradient(135deg,#10b98108,#fff)" onclick="toggle('n7')">
+      <div class="node-num" style="background:#10b981">07</div>
+      <div class="node-icon">✅</div>
+      <div class="node-title-wrap">
+        <div class="node-title" style="color:#059669">Recommendation Agent — Final Decision</div>
+        <div class="node-desc">Reads ALL upstream outputs + A2A messages and generates the final investigation decision</div>
+      </div>
+      <div class="node-toggle">▼</div>
+    </div>
+    <div class="node-body">
+      <div class="steps">
+        <div class="step">
+          <div class="step-icon" style="background:#d1fae5">📥</div>
+          <div class="step-content">
+            <div class="step-name">Reads All Inputs</div>
+            <div class="step-detail">
+              Receives everything accumulated from previous nodes:<br>
+              • Original query<br>
+              • Risk assessment (prob, level, factors) from Node 4<br>
+              • Policy violations from Node 5<br>
+              • Correlation signals (pattern type, severity) from Node 3<br>
+              • All A2A messages (ESCALATE/FLAG/APPROVE) from Nodes 4+5<br>
+              • Human decision (if HITL triggered) from Node 6<br>
+              • Top 3 similar historical claims from Node 2
+            </div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-icon" style="background:#d1fae5">🤖</div>
+          <div class="step-content">
+            <div class="step-name">LLM Synthesis (GPT-4o-mini)</div>
+            <div class="step-detail">GPT reads everything together and applies decision rules: APPROVE if prob &lt;0.3 and no violations. INVESTIGATE if 0.3–0.6 or minor violations. ESCALATE if prob &gt;0.6 or ESCALATE A2A received. REJECT if clear policy ineligibility.</div>
+            <div style="margin-top:.4rem">
+              <span class="tag" style="background:#dcfce7;color:#166534">APPROVE → P4</span>
+              <span class="tag" style="background:#fef9c3;color:#854d0e">INVESTIGATE → P2/P3</span>
+              <span class="tag" style="background:#fee2e2;color:#b91c1c">ESCALATE → P1/P2</span>
+              <span class="tag" style="background:#ede9fe;color:#6d28d9">REJECT → P3</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="output-box">
+        <div class="out-label">Output → State → Saved to Pinecone → Returned to Frontend</div>
+        <div class="out-items">
+          <span class="out-item">decision: APPROVE/INVESTIGATE/ESCALATE/REJECT</span>
+          <span class="out-item">priority: P1/P2/P3/P4</span>
+          <span class="out-item">investigation_steps []</span>
+          <span class="out-item">evidence_summary</span>
+          <span class="out-item">escalation_reason</span>
+          <span class="out-item">estimated_fraud_savings</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow"><div class="arrow-line"></div><span class="arrow-label">save to Pinecone + return JSON</span><div class="arrow-head"></div></div>
+
+  <!-- ═══ RESULT BANNER ═══ -->
+  <div class="result-banner">
+    <div class="result-item">
+      <div class="result-value">🛡️ ClaimsIQ</div>
+      <div class="result-label">Platform</div>
+    </div>
+    <div class="result-item">
+      <div><span class="result-badge" style="background:#fee2e2;color:#b91c1c">ESCALATE</span></div>
+      <div class="result-label">Decision</div>
+    </div>
+    <div class="result-item">
+      <div><span class="result-badge" style="background:#dbeafe;color:#1d4ed8">P1</span></div>
+      <div class="result-label">Priority</div>
+    </div>
+    <div class="result-item">
+      <div class="result-value" style="color:#ff6b35">0.83</div>
+      <div class="result-label">Fraud Probability</div>
+    </div>
+    <div class="result-item">
+      <div class="result-value" style="color:#10b981">$18,250</div>
+      <div class="result-label">Est. Savings</div>
+    </div>
+    <div class="result-item">
+      <div class="result-value" style="color:#00d4ff">7</div>
+      <div class="result-label">Nodes Executed</div>
+    </div>
+  </div>
+
+</div><!-- pipeline end -->
+
+<!-- ═══ TRADE-OFF SECTION ═══ -->
+<div style="max-width:900px;margin:2.5rem auto 0">
+
+  <div style="text-align:center;margin-bottom:1.5rem">
+    <div style="font-size:1.4rem;font-weight:900;color:#0f172a">⚖️ Technology Trade-off Analysis</div>
+    <div style="font-size:13px;color:#64748b;margin-top:.3rem">Why each component was chosen — Cost · Latency · Storage · Reason · Production Alternative</div>
+    <div style="display:flex;justify-content:center;gap:1rem;margin-top:.75rem;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:.4rem;font-size:11.5px;font-weight:600">
+        <div style="width:12px;height:12px;border-radius:3px;background:#f0f9ff;border:1.5px solid #0055ff"></div>
+        ✅ Chosen for Capstone
+      </div>
+      <div style="display:flex;align-items:center;gap:.4rem;font-size:11.5px;font-weight:600">
+        <div style="width:12px;height:12px;border-radius:3px;background:#fff;border:1.5px solid #94a3b8"></div>
+        ❌ Not chosen
+      </div>
+      <div style="display:flex;align-items:center;gap:.4rem;font-size:11.5px;font-weight:600">
+        <div style="width:12px;height:12px;border-radius:3px;background:linear-gradient(135deg,#0a0e1a,#0d1b3e)"></div>
+        🚀 Production Recommendation
+      </div>
+    </div>
+  </div>
+
+  <!-- Trade-off cards -->
+  <div style="display:flex;flex-direction:column;gap:1.25rem">
+
+    <!-- 1. Vector Database -->
+    <div class="node open" id="t1">
+      <div class="node-header" style="background:linear-gradient(135deg,#0055ff08,#fff)" onclick="toggle('t1')">
+        <div class="node-num" style="background:#0055ff">DB</div>
+        <div class="node-icon">🗄️</div>
+        <div class="node-title-wrap">
+          <div class="node-title" style="color:#0055ff">Vector Database — Pinecone ✅ Chosen</div>
+          <div class="node-desc">Stores 15,420 claim embeddings (1536-dim vectors) for semantic search</div>
+        </div>
+        <div class="node-toggle">▼</div>
+      </div>
+      <div class="node-body">
+        <div style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead>
+              <tr style="background:#0055ff;color:#fff">
+                <th style="padding:9px 12px;text-align:left;border-radius:8px 0 0 0">Option</th>
+                <th style="padding:9px 12px;text-align:center">Cost</th>
+                <th style="padding:9px 12px;text-align:center">Latency</th>
+                <th style="padding:9px 12px;text-align:center">Storage</th>
+                <th style="padding:9px 12px;text-align:left;border-radius:0 8px 0 0">Reason</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="background:#f0f9ff;border-bottom:1px solid #e2e8f0">
+                <td style="padding:9px 12px;font-weight:800;color:#0055ff">✅ Pinecone</td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Free tier</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">~50ms</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Cloud ♾️</span></td>
+                <td style="padding:9px 12px;color:#166534;font-weight:600">Cloud-hosted — survives restarts, deployable anywhere, metadata filtering, serverless</td>
+              </tr>
+              <tr style="background:#fff;border-bottom:1px solid #e2e8f0">
+                <td style="padding:9px 12px;font-weight:600;color:#64748b">❌ ChromaDB</td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Free</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">~10ms</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#fee2e2;color:#b91c1c;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Local disk</span></td>
+                <td style="padding:9px 12px;color:#64748b">Wipes on Docker restart — not cloud deployable. Was used initially.</td>
+              </tr>
+              <tr style="background:#fff;border-bottom:1px solid #e2e8f0">
+                <td style="padding:9px 12px;font-weight:600;color:#64748b">❌ FAISS</td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Free</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">~5ms</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#fef9c3;color:#854d0e;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">RAM only</span></td>
+                <td style="padding:9px 12px;color:#64748b">No metadata filtering, no persistence, no REST API — just an in-memory library</td>
+              </tr>
+              <tr style="background:#fff;border-bottom:1px solid #e2e8f0">
+                <td style="padding:9px 12px;font-weight:600;color:#64748b">❌ Weaviate</td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#fef9c3;color:#854d0e;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Paid/Free</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">~60ms</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#fef9c3;color:#854d0e;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Docker/K8s</span></td>
+                <td style="padding:9px 12px;color:#64748b">Requires Docker + Kubernetes — heavy infrastructure for a capstone project</td>
+              </tr>
+              <tr style="background:linear-gradient(135deg,#0a0e1a,#0d1b3e)">
+                <td style="padding:9px 12px;font-weight:800;color:#00d4ff">🚀 Pinecone Enterprise</td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:rgba(255,255,255,.1);color:#ffd166;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">$70+/mo</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:rgba(255,255,255,.1);color:#00d4ff;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">&lt;20ms</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:rgba(255,255,255,.1);color:#00d4ff;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Cloud · Unlimited</span></td>
+                <td style="padding:9px 12px;color:rgba(255,255,255,.8)">Same Pinecone but with dedicated pods, SLA guarantees, higher QPS, RBAC, and audit logs for enterprise compliance</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. Embedding Model -->
+    <div class="node" id="t2">
+      <div class="node-header" style="background:linear-gradient(135deg,#7c3aed08,#fff)" onclick="toggle('t2')">
+        <div class="node-num" style="background:#7c3aed">EM</div>
+        <div class="node-icon">🧠</div>
+        <div class="node-title-wrap">
+          <div class="node-title" style="color:#7c3aed">Embedding Model — text-embedding-3-small ✅ Chosen</div>
+          <div class="node-desc">Converts claim text to 1536-dimensional vectors for semantic search</div>
+        </div>
+        <div class="node-toggle">▼</div>
+      </div>
+      <div class="node-body">
+        <div style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead>
+              <tr style="background:#7c3aed;color:#fff">
+                <th style="padding:9px 12px;text-align:left">Option</th>
+                <th style="padding:9px 12px;text-align:center">Cost per 1M tokens</th>
+                <th style="padding:9px 12px;text-align:center">Dimensions</th>
+                <th style="padding:9px 12px;text-align:center">Quality</th>
+                <th style="padding:9px 12px;text-align:left">Reason</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="background:#faf5ff;border-bottom:1px solid #e2e8f0">
+                <td style="padding:9px 12px;font-weight:800;color:#7c3aed">✅ text-embedding-3-small</td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">$0.02</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#ede9fe;color:#6d28d9;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">1536</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">High</span></td>
+                <td style="padding:9px 12px;color:#166534;font-weight:600">Best cost/quality balance. 1536 dims captures rich insurance domain meaning.</td>
+              </tr>
+              <tr style="background:#fff;border-bottom:1px solid #e2e8f0">
+                <td style="padding:9px 12px;font-weight:600;color:#64748b">❌ text-embedding-3-large</td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#fee2e2;color:#b91c1c;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">$0.13</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#fef9c3;color:#854d0e;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">3072</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Highest</span></td>
+                <td style="padding:9px 12px;color:#64748b">6.5× more expensive, 2× more storage — marginal quality gain not worth the cost</td>
+              </tr>
+              <tr style="background:#fff;border-bottom:1px solid #e2e8f0">
+                <td style="padding:9px 12px;font-weight:600;color:#64748b">❌ ada-002</td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#fef9c3;color:#854d0e;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">$0.10</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#ede9fe;color:#6d28d9;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">1536</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#fef9c3;color:#854d0e;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Medium</span></td>
+                <td style="padding:9px 12px;color:#64748b">Older model — text-embedding-3-small is better AND cheaper</td>
+              </tr>
+              <tr style="background:#fff">
+                <td style="padding:9px 12px;font-weight:600;color:#64748b">❌ Local (all-MiniLM)</td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">$0</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#fee2e2;color:#b91c1c;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">384</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#fee2e2;color:#b91c1c;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Low</span></td>
+                <td style="padding:9px 12px;color:#64748b">Free but 384 dims = poor domain understanding for insurance terminology</td>
+              </tr>
+              <tr style="background:linear-gradient(135deg,#0a0e1a,#0d1b3e)">
+                <td style="padding:9px 12px;font-weight:800;color:#00d4ff">🚀 Fine-tuned Domain Embedding</td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:rgba(255,255,255,.1);color:#ffd166;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">$0.13/1M</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:rgba(255,255,255,.1);color:#00d4ff;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">3072 dims</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:rgba(255,255,255,.1);color:#00d4ff;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Cloud</span></td>
+                <td style="padding:9px 12px;color:rgba(255,255,255,.8)">text-embedding-3-large fine-tuned on insurance claim corpus — superior domain understanding for production fraud detection</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. Keyword Search -->
+    <div class="node" id="t3">
+      <div class="node-header" style="background:linear-gradient(135deg,#0891b208,#fff)" onclick="toggle('t3')">
+        <div class="node-num" style="background:#0891b2">KS</div>
+        <div class="node-icon">🔤</div>
+        <div class="node-title-wrap">
+          <div class="node-title" style="color:#0891b2">Keyword Search — BM25 ✅ Chosen</div>
+          <div class="node-desc">Finds claims with exact word matches — complements semantic search</div>
+        </div>
+        <div class="node-toggle">▼</div>
+      </div>
+      <div class="node-body">
+        <div style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead>
+              <tr style="background:#0891b2;color:#fff">
+                <th style="padding:9px 12px;text-align:left">Option</th>
+                <th style="padding:9px 12px;text-align:center">Cost</th>
+                <th style="padding:9px 12px;text-align:center">Latency</th>
+                <th style="padding:9px 12px;text-align:center">Setup</th>
+                <th style="padding:9px 12px;text-align:left">Reason</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="background:#ecfeff;border-bottom:1px solid #e2e8f0">
+                <td style="padding:9px 12px;font-weight:800;color:#0891b2">✅ BM25 (rank-bm25)</td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Free</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">&lt;5ms</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">pip install</span></td>
+                <td style="padding:9px 12px;color:#166534;font-weight:600">Industry standard, runs in-memory, no server, used by Elasticsearch internally</td>
+              </tr>
+              <tr style="background:#fff;border-bottom:1px solid #e2e8f0">
+                <td style="padding:9px 12px;font-weight:600;color:#64748b">❌ Elasticsearch</td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#fee2e2;color:#b91c1c;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Paid/Free</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">~20ms</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#fee2e2;color:#b91c1c;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Docker server</span></td>
+                <td style="padding:9px 12px;color:#64748b">Overkill — requires a running server, complex setup for 15,420 records</td>
+              </tr>
+              <tr style="background:#fff;border-bottom:1px solid #e2e8f0">
+                <td style="padding:9px 12px;font-weight:600;color:#64748b">❌ TF-IDF</td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Free</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">&lt;5ms</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">pip install</span></td>
+                <td style="padding:9px 12px;color:#64748b">BM25 is the improved version of TF-IDF — handles long documents better</td>
+              </tr>
+              <tr style="background:linear-gradient(135deg,#0a0e1a,#0d1b3e)">
+                <td style="padding:9px 12px;font-weight:800;color:#00d4ff">🚀 Elasticsearch</td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:rgba(255,255,255,.1);color:#ffd166;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Paid/Free</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:rgba(255,255,255,.1);color:#00d4ff;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">~20ms</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:rgba(255,255,255,.1);color:#00d4ff;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Cluster</span></td>
+                <td style="padding:9px 12px;color:rgba(255,255,255,.8)">Elasticsearch with BM25 for enterprise — horizontal scaling, distributed search, real-time indexing of new claims as they arrive</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. Reranker -->
+    <div class="node" id="t4">
+      <div class="node-header" style="background:linear-gradient(135deg,#ef444408,#fff)" onclick="toggle('t4')">
+        <div class="node-num" style="background:#ef4444">RR</div>
+        <div class="node-icon">🎯</div>
+        <div class="node-title-wrap">
+          <div class="node-title" style="color:#ef4444">Reranker — ms-marco-MiniLM-L-6-v2 ✅ Chosen</div>
+          <div class="node-desc">Re-scores top 20 candidates by reading query + document together</div>
+        </div>
+        <div class="node-toggle">▼</div>
+      </div>
+      <div class="node-body">
+        <div style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead>
+              <tr style="background:#ef4444;color:#fff">
+                <th style="padding:9px 12px;text-align:left">Option</th>
+                <th style="padding:9px 12px;text-align:center">Cost</th>
+                <th style="padding:9px 12px;text-align:center">Latency (20 docs)</th>
+                <th style="padding:9px 12px;text-align:center">Accuracy</th>
+                <th style="padding:9px 12px;text-align:left">Reason</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="background:#fff5f5;border-bottom:1px solid #e2e8f0">
+                <td style="padding:9px 12px;font-weight:800;color:#ef4444">✅ ms-marco-MiniLM-L-6-v2</td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Free · Local</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">~100ms</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">High</span></td>
+                <td style="padding:9px 12px;color:#166534;font-weight:600">Trained for passage relevance, fast on CPU, free, runs locally — no API cost</td>
+              </tr>
+              <tr style="background:#fff;border-bottom:1px solid #e2e8f0">
+                <td style="padding:9px 12px;font-weight:600;color:#64748b">❌ GPT-4o-mini reranking</td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#fee2e2;color:#b91c1c;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">$0.60/1M</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#fee2e2;color:#b91c1c;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">~3s (20 calls)</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Highest</span></td>
+                <td style="padding:9px 12px;color:#64748b">20 API calls per query = too slow (3s) and too expensive for marginal gain</td>
+              </tr>
+              <tr style="background:#fff;border-bottom:1px solid #e2e8f0">
+                <td style="padding:9px 12px;font-weight:600;color:#64748b">❌ bert-large reranker</td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Free · Local</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#fee2e2;color:#b91c1c;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">~800ms</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Higher</span></td>
+                <td style="padding:9px 12px;color:#64748b">8× slower than MiniLM on CPU — too slow for real-time use</td>
+              </tr>
+              <tr style="background:#fff">
+                <td style="padding:9px 12px;font-weight:600;color:#64748b">❌ No reranking</td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Free</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">0ms</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#fee2e2;color:#b91c1c;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Low</span></td>
+                <td style="padding:9px 12px;color:#64748b">RRF results contain noise — reranking improves top-5 precision significantly</td>
+              </tr>
+              <tr style="background:linear-gradient(135deg,#0a0e1a,#0d1b3e)">
+                <td style="padding:9px 12px;font-weight:800;color:#00d4ff">🚀 Cohere Rerank API</td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:rgba(255,255,255,.1);color:#ffd166;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">$1/1K calls</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:rgba(255,255,255,.1);color:#00d4ff;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">~200ms</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:rgba(255,255,255,.1);color:#00d4ff;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Cloud API</span></td>
+                <td style="padding:9px 12px;color:rgba(255,255,255,.8)">Cohere Rerank API trained on diverse domains — higher accuracy than MiniLM, no local hardware required, scales infinitely</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. LLM -->
+    <div class="node" id="t5">
+      <div class="node-header" style="background:linear-gradient(135deg,#10b98108,#fff)" onclick="toggle('t5')">
+        <div class="node-num" style="background:#10b981">LM</div>
+        <div class="node-icon">🤖</div>
+        <div class="node-title-wrap">
+          <div class="node-title" style="color:#059669">LLM — GPT-4o-mini ✅ Chosen</div>
+          <div class="node-desc">Powers all 5 agents — risk scoring, correlation, policy validation, recommendation</div>
+        </div>
+        <div class="node-toggle">▼</div>
+      </div>
+      <div class="node-body">
+        <div style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead>
+              <tr style="background:#10b981;color:#fff">
+                <th style="padding:9px 12px;text-align:left">Option</th>
+                <th style="padding:9px 12px;text-align:center">Cost per 1M tokens</th>
+                <th style="padding:9px 12px;text-align:center">Latency</th>
+                <th style="padding:9px 12px;text-align:center">Quality</th>
+                <th style="padding:9px 12px;text-align:left">Reason</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="background:#f0fdf4;border-bottom:1px solid #e2e8f0">
+                <td style="padding:9px 12px;font-weight:800;color:#059669">✅ GPT-4o-mini</td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">$0.60 in / $2.40 out</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">~1-2s</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">High</span></td>
+                <td style="padding:9px 12px;color:#166534;font-weight:600">Best cost/quality. Fast enough for real-time use. Sufficient for structured fraud analysis.</td>
+              </tr>
+              <tr style="background:#fff;border-bottom:1px solid #e2e8f0">
+                <td style="padding:9px 12px;font-weight:600;color:#64748b">❌ GPT-4o</td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#fee2e2;color:#b91c1c;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">$5 in / $15 out</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#fef9c3;color:#854d0e;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">~3-5s</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Highest</span></td>
+                <td style="padding:9px 12px;color:#64748b">8× more expensive — marginal quality gain doesn't justify cost for structured tasks</td>
+              </tr>
+              <tr style="background:#fff;border-bottom:1px solid #e2e8f0">
+                <td style="padding:9px 12px;font-weight:600;color:#64748b">❌ GPT-3.5-turbo</td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">$0.50 in / $1.50 out</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">~1s</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#fee2e2;color:#b91c1c;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Low</span></td>
+                <td style="padding:9px 12px;color:#64748b">Older model — struggles with complex structured output and insurance domain reasoning</td>
+              </tr>
+              <tr style="background:#fff">
+                <td style="padding:9px 12px;font-weight:600;color:#64748b">❌ Local Llama 3</td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Free</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#fee2e2;color:#b91c1c;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">~10-30s CPU</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#fef9c3;color:#854d0e;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Medium</span></td>
+                <td style="padding:9px 12px;color:#64748b">Very slow on CPU, requires GPU for acceptable speed — not practical for capstone</td>
+              </tr>
+              <tr style="background:linear-gradient(135deg,#0a0e1a,#0d1b3e)">
+                <td style="padding:9px 12px;font-weight:800;color:#00d4ff">🚀 GPT-4o or Fine-tuned Model</td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:rgba(255,255,255,.1);color:#ffd166;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">$5/$15 per 1M</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:rgba(255,255,255,.1);color:#00d4ff;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">~3-5s</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:rgba(255,255,255,.1);color:#00d4ff;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Cloud API</span></td>
+                <td style="padding:9px 12px;color:rgba(255,255,255,.8)">GPT-4o for highest accuracy on complex fraud patterns, or fine-tune GPT-4o-mini on insurance domain data for same cost with better specialization</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6. Pipeline Orchestration -->
+    <div class="node" id="t6">
+      <div class="node-header" style="background:linear-gradient(135deg,#f59e0b08,#fff)" onclick="toggle('t6')">
+        <div class="node-num" style="background:#f59e0b">OR</div>
+        <div class="node-icon">🔄</div>
+        <div class="node-title-wrap">
+          <div class="node-title" style="color:#b45309">Pipeline Orchestration — LangGraph ✅ Chosen</div>
+          <div class="node-desc">Controls the flow between all 7 nodes with HITL checkpointing</div>
+        </div>
+        <div class="node-toggle">▼</div>
+      </div>
+      <div class="node-body">
+        <div style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead>
+              <tr style="background:#f59e0b;color:#fff">
+                <th style="padding:9px 12px;text-align:left">Option</th>
+                <th style="padding:9px 12px;text-align:center">HITL Support</th>
+                <th style="padding:9px 12px;text-align:center">Deterministic</th>
+                <th style="padding:9px 12px;text-align:center">Complexity</th>
+                <th style="padding:9px 12px;text-align:left">Reason</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="background:#fffbeb;border-bottom:1px solid #e2e8f0">
+                <td style="padding:9px 12px;font-weight:800;color:#b45309">✅ LangGraph</td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">First-class</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Yes</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#fef9c3;color:#854d0e;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Medium</span></td>
+                <td style="padding:9px 12px;color:#166534;font-weight:600">HITL is a first-class feature. Deterministic flow. Full state history. MemorySaver checkpointing.</td>
+              </tr>
+              <tr style="background:#fff;border-bottom:1px solid #e2e8f0">
+                <td style="padding:9px 12px;font-weight:600;color:#64748b">❌ LangChain AgentExecutor</td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#fee2e2;color:#b91c1c;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">None</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#fee2e2;color:#b91c1c;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">No</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Low</span></td>
+                <td style="padding:9px 12px;color:#64748b">LLM decides tool order — non-deterministic. No HITL support. Hard to audit.</td>
+              </tr>
+              <tr style="background:#fff">
+                <td style="padding:9px 12px;font-weight:600;color:#64748b">❌ Custom Python</td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#fef9c3;color:#854d0e;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Manual</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Yes</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#fee2e2;color:#b91c1c;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">High</span></td>
+                <td style="padding:9px 12px;color:#64748b">Would need to rebuild checkpointing, state management, routing — reinventing LangGraph</td>
+              </tr>
+              <tr style="background:linear-gradient(135deg,#0a0e1a,#0d1b3e)">
+                <td style="padding:9px 12px;font-weight:800;color:#00d4ff">🚀 LangGraph + PostgreSQL Checkpointer</td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:rgba(255,255,255,.1);color:#ffd166;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Free + DB cost</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:rgba(255,255,255,.1);color:#00d4ff;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">~5ms overhead</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:rgba(255,255,255,.1);color:#00d4ff;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Persistent DB</span></td>
+                <td style="padding:9px 12px;color:rgba(255,255,255,.8)">Replace MemorySaver (in-memory) with PostgreSQL checkpointer — HITL state survives server restarts, supports concurrent investigations across multiple analysts</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 7. Chunking Strategy -->
+    <div class="node" id="t7">
+      <div class="node-header" style="background:linear-gradient(135deg,#64748b08,#fff)" onclick="toggle('t7')">
+        <div class="node-num" style="background:#64748b">CH</div>
+        <div class="node-icon">📄</div>
+        <div class="node-title-wrap">
+          <div class="node-title" style="color:#475569">Chunking Strategy — Row-per-Document ✅ Chosen</div>
+          <div class="node-desc">Each CSV row becomes exactly one vector — no splitting</div>
+        </div>
+        <div class="node-toggle">▼</div>
+      </div>
+      <div class="node-body">
+        <div style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead>
+              <tr style="background:#64748b;color:#fff">
+                <th style="padding:9px 12px;text-align:left">Strategy</th>
+                <th style="padding:9px 12px;text-align:center">Vectors Created</th>
+                <th style="padding:9px 12px;text-align:center">Context Loss</th>
+                <th style="padding:9px 12px;text-align:center">Storage</th>
+                <th style="padding:9px 12px;text-align:left">Reason</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0">
+                <td style="padding:9px 12px;font-weight:800;color:#475569">✅ Row-per-document</td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">15,420</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">None</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">~90MB</span></td>
+                <td style="padding:9px 12px;color:#166534;font-weight:600">Each row is already 150-200 tokens — perfectly sized. Splitting destroys claim context.</td>
+              </tr>
+              <tr style="background:#fff;border-bottom:1px solid #e2e8f0">
+                <td style="padding:9px 12px;font-weight:600;color:#64748b">❌ Fixed-size (500 tokens)</td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#fee2e2;color:#b91c1c;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Would split rows</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#fee2e2;color:#b91c1c;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Severe</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Same</span></td>
+                <td style="padding:9px 12px;color:#64748b">Designed for long docs — our rows are already &lt;500 tokens. No benefit.</td>
+              </tr>
+              <tr style="background:#fff;border-bottom:1px solid #e2e8f0">
+                <td style="padding:9px 12px;font-weight:600;color:#64748b">❌ Recursive chunking</td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#fee2e2;color:#b91c1c;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Wrong tool</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#fee2e2;color:#b91c1c;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Severe</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#fee2e2;color:#b91c1c;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">2-3×</span></td>
+                <td style="padding:9px 12px;color:#64748b">Designed for narrative text (PDFs, reports) — our data is structured key-value pairs</td>
+              </tr>
+              <tr style="background:#fff">
+                <td style="padding:9px 12px;font-weight:600;color:#64748b">⚠ Enriched row (future)</td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#fef9c3;color:#854d0e;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">15,420</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">None</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:#fef9c3;color:#854d0e;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">~110MB</span></td>
+                <td style="padding:9px 12px;color:#854d0e">Add computed fraud signals to each row before embedding — would improve search accuracy</td>
+              </tr>
+              <tr style="background:linear-gradient(135deg,#0a0e1a,#0d1b3e)">
+                <td style="padding:9px 12px;font-weight:800;color:#00d4ff">🚀 Enriched Row + Hierarchical Store</td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:rgba(255,255,255,.1);color:#ffd166;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">Same</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:rgba(255,255,255,.1);color:#00d4ff;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">~110MB</span></td>
+                <td style="padding:9px 12px;text-align:center"><span style="background:rgba(255,255,255,.1);color:#00d4ff;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">2 vectors/claim</span></td>
+                <td style="padding:9px 12px;color:rgba(255,255,255,.8)">Store 2 vectors per claim: (1) short fraud-signal summary for fast search, (2) full enriched document for precise ranking — best of both speed and accuracy</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- trade-off cards end -->
+
+  <!-- Summary table -->
+  <div style="margin-top:1.5rem;background:linear-gradient(135deg,#0a0e1a,#0d1b3e);border-radius:16px;padding:1.5rem 2rem">
+    <div style="font-size:14px;font-weight:800;color:#fff;margin-bottom:1.25rem;text-align:center">
+      📊 Capstone vs Production — Quick Comparison
+    </div>
+    <div style="margin-bottom:.75rem">
+      <div style="font-size:10px;font-weight:800;color:#00d4ff;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.6rem">🎓 Capstone Stack</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;text-align:center">
+        <div><div style="font-size:1.1rem;font-weight:900;color:#00d4ff">Free</div><div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:.2rem">Ingest Cost</div></div>
+        <div><div style="font-size:1.1rem;font-weight:900;color:#ff6b35">~3-5s</div><div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:.2rem">Pipeline Latency</div></div>
+        <div><div style="font-size:1.1rem;font-weight:900;color:#10b981">~90MB</div><div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:.2rem">Pinecone Storage</div></div>
+        <div><div style="font-size:1.1rem;font-weight:900;color:#a78bfa">$0.003</div><div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:.2rem">Cost / Query</div></div>
+      </div>
+    </div>
+    <div style="height:1px;background:rgba(255,255,255,.1);margin-bottom:.75rem"></div>
+    <div style="margin-bottom:.75rem">
+      <div style="font-size:10px;font-weight:800;color:#ffd166;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.6rem">🚀 Production Stack</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;text-align:center">
+        <div><div style="font-size:1.1rem;font-weight:900;color:#ffd166">~$50</div><div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:.2rem">Re-embed Cost</div></div>
+        <div><div style="font-size:1.1rem;font-weight:900;color:#ffd166">&lt;1s</div><div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:.2rem">Optimised Latency</div></div>
+        <div><div style="font-size:1.1rem;font-weight:900;color:#ffd166">~180MB</div><div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:.2rem">Enriched Storage</div></div>
+        <div><div style="font-size:1.1rem;font-weight:900;color:#ffd166">$0.01</div><div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:.2rem">Cost / Query</div></div>
+      </div>
+    </div>
+    <div style="height:1px;background:rgba(255,255,255,.1);margin-bottom:.75rem"></div>
+    <div style="font-size:10px;font-weight:800;color:#a78bfa;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.6rem">Key Changes for Production</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem">
+      <div style="background:rgba(255,255,255,.06);border-radius:8px;padding:.5rem .85rem;font-size:11px;color:rgba(255,255,255,.8)">🗄️ <strong style="color:#ffd166">Pinecone Enterprise</strong> — dedicated pods, SLA, RBAC, audit logs</div>
+      <div style="background:rgba(255,255,255,.06);border-radius:8px;padding:.5rem .85rem;font-size:11px;color:rgba(255,255,255,.8)">🧠 <strong style="color:#ffd166">Fine-tuned Embeddings</strong> — insurance domain training for accuracy</div>
+      <div style="background:rgba(255,255,255,.06);border-radius:8px;padding:.5rem .85rem;font-size:11px;color:rgba(255,255,255,.8)">🔍 <strong style="color:#ffd166">Elasticsearch</strong> — distributed BM25, real-time claim indexing</div>
+      <div style="background:rgba(255,255,255,.06);border-radius:8px;padding:.5rem .85rem;font-size:11px;color:rgba(255,255,255,.8)">🎯 <strong style="color:#ffd166">Cohere Rerank API</strong> — cloud reranking, no local compute needed</div>
+      <div style="background:rgba(255,255,255,.06);border-radius:8px;padding:.5rem .85rem;font-size:11px;color:rgba(255,255,255,.8)">🤖 <strong style="color:#ffd166">GPT-4o / Fine-tuned LLM</strong> — higher fraud detection accuracy</div>
+      <div style="background:rgba(255,255,255,.06);border-radius:8px;padding:.5rem .85rem;font-size:11px;color:rgba(255,255,255,.8)">💾 <strong style="color:#ffd166">PostgreSQL Checkpointer</strong> — HITL state survives restarts</div>
+      <div style="background:rgba(255,255,255,.06);border-radius:8px;padding:.5rem .85rem;font-size:11px;color:rgba(255,255,255,.8)">📄 <strong style="color:#ffd166">Enriched Documents</strong> — pre-computed fraud signals in each vector</div>
+      <div style="background:rgba(255,255,255,.06);border-radius:8px;padding:.5rem .85rem;font-size:11px;color:rgba(255,255,255,.8)">🔒 <strong style="color:#ffd166">OAuth2 / JWT Auth</strong> — replace admin/1234 with enterprise auth</div>
+    </div>
+  </div>
+
+</div><!-- trade-off section end -->
+
+<div style="text-align:center;margin-top:2rem;font-size:11px;color:#94a3b8">
+  © 2025 ClaimsIQ — AI-Powered Insurance Claims Intelligence · Prodapt FDE Capstone
+</div>
+
+<script>
+  function toggle(id) {
+    const node = document.getElementById(id);
+    node.classList.toggle('open');
+  }
+  // Open all nodes by default
+  document.querySelectorAll('.node').forEach(n => n.classList.add('open'));
+</script>
+</body>
+</html>

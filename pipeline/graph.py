@@ -191,6 +191,7 @@ def node_recommendation(state: ClaimState) -> dict:
         retrieved_claims=state["retrieved_claims"],
         correlation_signals=state.get("correlation_signals"),
         a2a_messages=state.get("a2a_messages"),
+        human_decision=state.get("human_decision", ""),
     )
     return {"recommendation": rec}
 

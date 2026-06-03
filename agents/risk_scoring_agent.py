@@ -27,20 +27,38 @@ _parser = PydanticOutputParser(pydantic_object=RiskScore)
 
 SCORE_PROMPT = ChatPromptTemplate.from_messages([
     ("system",
-     "You are an expert insurance fraud analyst. Analyse the submitted claim query "
-     "against the retrieved similar historical claims and produce a structured fraud "
-     "risk assessment.\n\n"
+     "You are an expert insurance fraud analyst. Assess the fraud risk of the "
+     "submitted claim query.\n\n"
+
+     "STEP 1 — Read the query for LEGITIMACY SIGNALS (these LOWER fraud probability):\n"
+     "  • 'police report filed' or 'police report' alone        → strong legitimacy signal, -0.3\n"
+     "  • 'third party fault' or 'third party at fault'         → strong legitimacy signal, -0.25\n"
+     "  • 'witness present' or 'witness'                        → legitimacy signal, -0.15\n"
+     "  • 'no previous claims' or 'none past claims'            → legitimacy signal, -0.1\n\n"
+
+     "STEP 2 — Read the query for FRAUD SIGNALS (these RAISE fraud probability):\n"
+     "  • 'no police report' or 'police report not filed'       → strong fraud signal, +0.35\n"
+     "  • 'missing accident date' or 'days to accident: none'   → strongest fraud signal, +0.4\n"
+     "  • 'no witness' or 'witness not present'                 → fraud signal, +0.2\n"
+     "  • 'more than 4 past claims' or 'excessive past claims'  → fraud signal, +0.25\n"
+     "  • 'policy holder at fault'                              → mild fraud signal, +0.1\n\n"
+
+     "STEP 3 — Use retrieved similar claims as SUPPORTING CONTEXT only.\n"
+     "  The retrieved claims inform patterns but DO NOT override what the query explicitly states.\n"
+     "  If the query has strong legitimacy signals, score LOW even if retrieved claims are fraudulent.\n\n"
+
      "Risk level mapping:\n"
      "  0.0–0.3  → LOW\n"
      "  0.3–0.5  → MEDIUM\n"
      "  0.5–0.75 → HIGH\n"
      "  0.75–1.0 → CRITICAL\n\n"
+
      "Mark requires_human_review=True when fraud_probability is between "
      "{low_threshold} and {high_threshold} (uncertainty band).\n\n"
      "{format_instructions}"),
     ("human",
      "Claim query: {query}\n\n"
-     "Similar historical claims retrieved:\n{similar_claims}"),
+     "Similar historical claims (context only — query signals take priority):\n{similar_claims}"),
 ])
 
 
